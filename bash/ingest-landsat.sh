@@ -1,4 +1,8 @@
 #!/bin/bash
+# requires:
+# ~./.usgs.txt with USGS machine access credentials
+#
+
 
 PROG=`basename $0`;
 BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"

@@ -16,6 +16,10 @@ FILE_LANDSAT_QUEUE=`$BIN/read-config.sh "FILE_LANDSAT_QUEUE"`
 FILE_LANDSAT_QUEUE_TM=${FILE_LANDSAT_QUEUE%%.*}"_TM.txt"
 FILE_LANDSAT_QUEUE_OLI=${FILE_LANDSAT_QUEUE%%.*}"_OLI.txt"
 
+# parse temp directories
+DIR_TEMP_LANDSAT_TM=`sed -nr 's/^DIR_TEMP.*= *(.+)$/\1/p' $FILE_ARD_LANDSAT_TM_PARAM`
+DIR_TEMP_LANDSAT_OLI=`sed -nr 's/^DIR_TEMP.*= *(.+)$/\1/p' $FILE_ARD_LANDSAT_OLI_PARAM`
+
 # split queue
 set +e
 grep "LE07_\|LT05_\|LT04_"  $FILE_LANDSAT_QUEUE > $FILE_LANDSAT_QUEUE_TM
@@ -35,6 +39,7 @@ docker run \
   -v $HOME:/app/credentials \
   -v /data:/data \
   -v /mnt:/mnt \
+  -v $DIR_TEMP_LANDSAT_TM:$DIR_TEMP_LANDSAT_TM \
   -v $HOME:$HOME \
   -w $PWD \
   -u $(id -u):$(id -g) \
@@ -52,6 +57,7 @@ if [ $NUM_OLI -gt 0 ]; then
   -v $HOME:/app/credentials \
   -v /data:/data \
   -v /mnt:/mnt \
+  -v $DIR_TEMP_LANDSAT_OLI:$DIR_TEMP_LANDSAT_OLI \
   -v $HOME:$HOME \
   -w $PWD \
   -u $(id -u):$(id -g) \
