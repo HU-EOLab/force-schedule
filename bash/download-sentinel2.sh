@@ -24,7 +24,7 @@ docker run \
 -v /mnt:/mnt \
 -v $HOME:$HOME \
 -w $PWD \
--u $(id -u):$(id -g) \
+-u $(id -u):1034 \
 $IMAGE \
 force-level1-csd \
   -c 0,70 \
