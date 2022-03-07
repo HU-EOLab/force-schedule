@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROG=`basename $0`;
+# PROG=`basename $0`;
 BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # make sure script exits if any process exits unsuccessfully
@@ -19,8 +19,8 @@ if [ $ntry -ge $maxtry ]; then
 fi
 
 # parse config file
-IMAGE=`$BIN/read-config.sh "FORCE_IMAGE"`
-DIR_WVP=`$BIN/read-config.sh "DIR_WVP"`
+# IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
+DIR_WVP=$("$BIN"/read-config.sh "DIR_WVP")
 
 # start and end dates
 #d=2000-02-24
@@ -34,9 +34,9 @@ y=$(date -I --date yesterday)
 TIME=$(date +"%Y%m%d%H%M%S")
 
 CMD="$DIR_WVP/cmds.sh"
-if [ -r $CMD ]; then
+if [ -r "$CMD" ]; then
   echo "warning: $CMD already exists. Deleting it now."
-  rm $CMD
+  rm "$CMD"
 fi
 
 while [ "$d" != "$y" ]; do 
@@ -44,7 +44,7 @@ while [ "$d" != "$y" ]; do
   YEAR=$(date -d $d +"%Y")
   MONTH=$(date -d $d +"%m")
   DAY=$(date -d $d +"%d")
-  echo $BIN/download-wvdb.sh $YEAR $MONTH $DAY >> $CMD
+  echo "$BIN/download-wvdb.sh $YEAR $MONTH $DAY" >> "$CMD"
 
   d=$(date -I -d "$d + 1 day")
 
@@ -55,26 +55,26 @@ done
 LOG="$DIR_WVP/log/force-lut-modis_$TIME-try$ntry.log"
 
 set +e
-parallel -a $CMD -j 8 > $LOG
+parallel -a "$CMD" -j 8 > "$LOG"
 set -e
 
-rm $CMD
+rm "$CMD"
 
 
 # if failed, delete uncomplete files, and try again
-fail=$(grep "unable to open image" $LOG | sed 's/^.*unable to open image //')
-nfail=$(echo $fail | wc -l)
+fail=$(grep "unable to open image $LOG"  | sed 's/^.*unable to open image //')
+nfail=$(echo "$fail" | wc -l)
 echo "$nfail failed"
-echo $fail 
+echo "$fail"
 
-if [ $nfail -gt 0 ]; then
+if [ "$nfail" -gt 0 ]; then
   echo "failed to download $nfail images (tries: $((ntry+1)))"
   ((++ntry))
-  rm $fail
-  $BIN/update-wvdb.sh $ntry
+  rm "$fail"
+  "$BIN"/update-wvdb.sh "$ntry"
 fi
 
 # once again to build climatology
-$BIN/download-wvdb.sh
+"$BIN"/download-wvdb.sh
 
 exit 0

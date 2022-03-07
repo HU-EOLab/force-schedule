@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROG=`basename $0`;
+# PROG=`basename $0`;
 BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # make sure script exits if any process exits unsuccessfully
@@ -8,8 +8,8 @@ set -e
 
 
 # parse config file
-DIR_LANDSAT_LINKS=`$BIN/read-config.sh "DIR_LANDSAT_LINKS"`
-DIR_LANDSAT_IMAGES=`$BIN/read-config.sh "DIR_LANDSAT_IMAGES"`
+DIR_LANDSAT_LINKS=$("$BIN"/read-config.sh "DIR_LANDSAT_LINKS")
+DIR_LANDSAT_IMAGES=$("$BIN"/read-config.sh "DIR_LANDSAT_IMAGES")
 
 function download (){
 
