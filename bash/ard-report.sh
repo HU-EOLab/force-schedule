@@ -10,6 +10,7 @@ set -e
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
 DIR_ARD_REPORT=$("$BIN"/read-config.sh "DIR_ARD_REPORT")
+USERNAME=$("$BIN"/read-config.sh "USERNAME")
 
 # current time
 TIME=$(date +"%Y%m%d%H%M%S")
@@ -24,7 +25,7 @@ docker run \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \
 -w "$PWD" \
--u "$(id -u):$(id -g)" \
+-u "$USERNAME" \
 "$IMAGE" \
 force-level2-report \
   -o "$DIR_ARD_REPORT/report_$TIME.html" \

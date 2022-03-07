@@ -13,6 +13,7 @@ DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
 DIR_SENTINEL2_IMAGES=$("$BIN"/read-config.sh "DIR_SENTINEL2_IMAGES")
 FILE_SENTINEL2_QUEUE=$("$BIN"/read-config.sh "FILE_SENTINEL2_QUEUE")
 FILE_SENTINEL2_AOI=$("$BIN"/read-config.sh "FILE_SENTINEL2_AOI")
+USERNAME=$("$BIN"/read-config.sh "USERNAME")
 
 # download Sentinel-2 L1C images that weren't processed to ARD yet
 docker run \
@@ -24,12 +25,12 @@ docker run \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \
 -w "$PWD" \
--u "$(id -u):datacube" \
+-u "$USERNAME" \
 "$IMAGE" \
 force-level1-csd \
   -c 0,70 \
   -s S2A,S2B \
-  -l $DIR_ARD_LOG \
+  -l "$DIR_ARD_LOG" \
   "$DIR_CSD_META" \
   "$DIR_SENTINEL2_IMAGES" \
   "$FILE_SENTINEL2_QUEUE" \

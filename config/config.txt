@@ -1,6 +1,8 @@
 FORCE_IMAGE = davidfrantz/force:3.7.7
 LANDSATLINKS_IMAGE = ernstste/landsatlinks
 
+USERNAME = jakimowb:datacube
+
 DIR_CSD_META = /data/Dagobah/dc/input
 
 DIR_WVP = /data/Dagobah/dc/misc/wvp

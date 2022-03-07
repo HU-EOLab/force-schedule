@@ -9,6 +9,7 @@ set -e
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 DIR_WVP=$("$BIN"/read-config.sh "DIR_WVP")
+USERNAME=$("$BIN"/read-config.sh "USERNAME")
 
 # date
 if [ $# -eq 0 ]; then
@@ -44,7 +45,7 @@ docker run \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \
 -w "$PWD" \
--u "$(id -u):$(id -g)" \
+-u "$USERNAME" \
 "$IMAGE" \
 force-lut-modis \
   -d "$YEAR$MONTH$DAY,$YEAR$MONTH$DAY" \

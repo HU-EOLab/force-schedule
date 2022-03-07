@@ -10,6 +10,7 @@ set -e
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 FILE_ARD_SENTINEL2_PARAM=$("$BIN"/read-config.sh "FILE_ARD_SENTINEL2_PARAM")
 DIR_TEMP=$(sed -nr 's/^DIR_TEMP.*= *(.+)$/\1/p' "$FILE_ARD_SENTINEL2_PARAM")
+USERNAME=$("$BIN"/read-config.sh "USERNAME")
 
 # preprocess the S2 L1C to L2 ARD
 docker run \
@@ -22,7 +23,7 @@ docker run \
 -v "$HOME:$HOME" \
 -v "$DIR_TEMP:$DIR_TEMP" \
 -w "$PWD" \
--u "$(id -u):$(id -g)" \
+-u "$USERNAME" \
 "$IMAGE" \
 force-level2 \
   "$FILE_ARD_SENTINEL2_PARAM"
