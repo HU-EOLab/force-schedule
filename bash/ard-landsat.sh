@@ -11,7 +11,7 @@ IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 FILE_ARD_LANDSAT_OLI_PARAM=$("$BIN"/read-config.sh "FILE_ARD_LANDSAT_OLI_PARAM")
 FILE_ARD_LANDSAT_TM_PARAM=$("$BIN"/read-config.sh "FILE_ARD_LANDSAT_TM_PARAM")
 FILE_LANDSAT_QUEUE=$("$BIN"/read-config.sh "FILE_LANDSAT_QUEUE")
-USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
+USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
 # renamed queue
 FILE_LANDSAT_QUEUE_TM=${FILE_LANDSAT_QUEUE%%.*}"_TM.txt"

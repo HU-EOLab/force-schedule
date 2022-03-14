@@ -9,7 +9,7 @@ set -e
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 DIR_WVP=$("$BIN"/read-config.sh "DIR_WVP")
-USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
+USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
 # date
 if [ $# -eq 0 ]; then

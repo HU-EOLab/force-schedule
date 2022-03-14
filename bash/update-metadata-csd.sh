@@ -9,7 +9,7 @@ set -e
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 DIR_CSD_META=$("$BIN"/read-config.sh "DIR_CSD_META")
-USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
+USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
 # update CSD metadata
 docker run \

@@ -11,7 +11,7 @@ IMAGE=$("$BIN"/read-config.sh "LANDSATLINKS_IMAGE")
 DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
 DIR_LANDSAT_LINKS=$("$BIN"/read-config.sh "DIR_LANDSAT_LINKS")
 FILE_LANDSAT_AOI=$("$BIN"/read-config.sh "FILE_LANDSAT_AOI")
-USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
+USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
 for s in TM ETM OLI; do
 

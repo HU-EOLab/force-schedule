@@ -4,7 +4,7 @@
 # fr example: "userX:groupY" will be returned as 1234:4321, with 1234 being the user ID etc.
 # PROG=`basename $0`;
 BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
+USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
 # IFS=', ' read -r -a array <<< "$string"
 UNAME=$(grep -Po '^.*(?=:)' <<< $USER_GROUP)

@@ -10,7 +10,7 @@ set -e
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
 DIR_ARD_REPORT=$("$BIN"/read-config.sh "DIR_ARD_REPORT")
-USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
+USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
 # current time
 TIME=$(date +"%Y%m%d%H%M%S")
