@@ -11,7 +11,7 @@ IMAGE=$("$BIN"/read-config.sh "LANDSATLINKS_IMAGE")
 DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
 DIR_LANDSAT_LINKS=$("$BIN"/read-config.sh "DIR_LANDSAT_LINKS")
 FILE_LANDSAT_AOI=$("$BIN"/read-config.sh "FILE_LANDSAT_AOI")
-USERNAME=$("$BIN"/read-config.sh "USERNAME")
+USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
 
 for s in TM ETM OLI; do
 
@@ -22,7 +22,7 @@ for s in TM ETM OLI; do
   -v /mnt:/mnt \
   -v "$HOME:$HOME" \
   -w "$PWD" \
-  -u "$USERNAME" \
+  -u "$USER_GROUP" \
   "$IMAGE" \
   landsatlinks \
       -c 0,70 \

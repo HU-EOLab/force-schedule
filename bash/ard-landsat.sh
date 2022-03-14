@@ -11,7 +11,7 @@ IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 FILE_ARD_LANDSAT_OLI_PARAM=$("$BIN"/read-config.sh "FILE_ARD_LANDSAT_OLI_PARAM")
 FILE_ARD_LANDSAT_TM_PARAM=$("$BIN"/read-config.sh "FILE_ARD_LANDSAT_TM_PARAM")
 FILE_LANDSAT_QUEUE=$("$BIN"/read-config.sh "FILE_LANDSAT_QUEUE")
-USERNAME=$("$BIN"/read-config.sh "USERNAME")
+USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
 
 # renamed queue
 FILE_LANDSAT_QUEUE_TM=${FILE_LANDSAT_QUEUE%%.*}"_TM.txt"
@@ -43,7 +43,7 @@ docker run \
   -v "$DIR_TEMP_LANDSAT_TM:$DIR_TEMP_LANDSAT_TM" \
   -v "$HOME:$HOME" \
   -w "$PWD" \
-  -u "$USERNAME" \
+  -u "$USER_GROUP" \
   "$IMAGE" \
   force-level2 \
     "$FILE_ARD_LANDSAT_TM_PARAM"
@@ -61,7 +61,7 @@ if [ "$NUM_OLI" -gt 0 ]; then
   -v "$DIR_TEMP_LANDSAT_OLI:$DIR_TEMP_LANDSAT_OLI" \
   -v "$HOME:$HOME" \
   -w "$PWD" \
-  -u "$USERNAME" \
+  -u "$USER_GROUP" \
   "$IMAGE" \
   force-level2 \
     "$FILE_ARD_LANDSAT_OLI_PARAM"

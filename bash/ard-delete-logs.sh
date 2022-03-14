@@ -9,7 +9,7 @@ set -e
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
-USERNAME=$("$BIN"/read-config.sh "USERNAME")
+USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
 
 # preprocess the S2 L1C to L2 ARD
 docker run \
@@ -21,7 +21,7 @@ docker run \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \
 -w "$PWD" \
--u "USERNAME" \
+-u "$USER_GROUP" \
 "$IMAGE" \
     "$BIN/../rstats/delete-failed-logs.r"  \
     "$DIR_ARD_LOG"

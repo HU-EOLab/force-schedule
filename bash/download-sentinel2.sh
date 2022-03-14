@@ -13,7 +13,7 @@ DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
 DIR_SENTINEL2_IMAGES=$("$BIN"/read-config.sh "DIR_SENTINEL2_IMAGES")
 FILE_SENTINEL2_QUEUE=$("$BIN"/read-config.sh "FILE_SENTINEL2_QUEUE")
 FILE_SENTINEL2_AOI=$("$BIN"/read-config.sh "FILE_SENTINEL2_AOI")
-USERNAME=$("$BIN"/read-config.sh "USERNAME")
+USER_GROUP=$("$BIN"/read-config.sh "USER_GROUP")
 
 # download Sentinel-2 L1C images that weren't processed to ARD yet
 docker run \
@@ -25,7 +25,7 @@ docker run \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \
 -w "$PWD" \
--u "$USERNAME" \
+-u "$USER_GROUP" \
 "$IMAGE" \
 force-level1-csd \
   -c 0,70 \
