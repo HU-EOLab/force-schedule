@@ -22,6 +22,8 @@ fi
 # IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 DIR_WVP=$("$BIN"/read-config.sh "DIR_WVP")
 
+
+
 # start and end dates
 #d=2000-02-24
 d=2021-06-01
@@ -53,7 +55,7 @@ done
 
 # download and compile
 LOG="$DIR_WVP/log/force-lut-modis_$TIME-try$ntry.log"
-
+echo "download is logged to $LOG"
 set +e
 parallel -a "$CMD" -j 8 > "$LOG"
 set -e
@@ -62,7 +64,7 @@ rm "$CMD"
 
 
 # if failed, delete uncomplete files, and try again
-fail=$(grep "unable to open image $LOG"  | sed 's/^.*unable to open image //')
+fail=$(grep "unable to open image" "$LOG"  | sed 's/^.*unable to open image //')
 nfail=$(echo "$fail" | wc -l)
 echo "$nfail failed"
 echo "$fail"
