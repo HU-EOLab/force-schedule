@@ -72,7 +72,7 @@ echo "$fail"
 if [ "$nfail" -gt 0 ]; then
   echo "failed to download $nfail images (tries: $((ntry+1)))"
   ((++ntry))
-  rm "$fail"
+  rm $fail
   "$BIN"/update-wvdb.sh "$ntry"
 fi
 

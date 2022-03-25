@@ -36,7 +36,7 @@ export -f extract
 
 ls "$DIR_LANDSAT_IMAGES"/*.tar | parallel -j8 extract {}
 
-ls -d "$DIR_LANDSAT_IMAGES/*/" > "$FILE_LANDSAT_QUEUE"
+ls -d "$DIR_LANDSAT_IMAGES"/*/ > "$FILE_LANDSAT_QUEUE"
 sed -i 's/$/ QUEUED/' "$FILE_LANDSAT_QUEUE"
 
 exit 0
