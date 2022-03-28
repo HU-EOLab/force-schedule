@@ -64,15 +64,14 @@ rm "$CMD"
 
 
 # if failed, delete uncomplete files, and try again
-fail=$(grep "unable to open image" "$LOG"  | sed 's/^.*unable to open image //')
-nfail=$(echo "$fail" | wc -l)
-echo "$nfail failed"
-echo "$fail"
+LOG=/data/Dagobah/dc/misc/wvp/log/force-lut-modis_20220327202429-try0.log
+fail=($(grep -oP '(?<=unable to open image ).*$' $LOG))
+nfail=${#fail}
 
 if [ "$nfail" -gt 0 ]; then
   echo "failed to download $nfail images (tries: $((ntry+1)))"
   ((++ntry))
-  rm $fail
+  rm "${fail[@]}"
   "$BIN"/update-wvdb.sh "$ntry"
 fi
 

@@ -23,7 +23,7 @@ docker run \
 -w "$PWD" \
 -u "$USER_GROUP" \
 "$IMAGE" \
-    "$BIN/../rstats/delete-failed-logs.r"  \
+    "$BIN"/../rstats/delete-failed-logs.r  \
     "$DIR_ARD_LOG"
 
 exit 0
