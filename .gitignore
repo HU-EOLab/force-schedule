@@ -1,4 +1,4 @@
 .idea
 log
-/config/config.txt
+config/config.txt
 config/email_recipients.txt
