@@ -16,7 +16,7 @@ function download (){
   LINK=$1
   DIR=$2
 
-  wget --content-disposition -nc "$LINK" -P "$DIR"
+  wget --no-verbose --content-disposition -nc "$LINK" -P "$DIR"
 
 }
 export -f download
