@@ -11,9 +11,16 @@
 #       Also checks for orphaned files from WVP download.
 # ============================================================================
 
+function count_pattern() {
+  local pattern="$1"
+  local input="$2"
+  echo $(grep -c "$pattern" <<< $input)
+}
 
-function count_by_sensor() {
-  echo $(echo "$2" | grep -o "$1" | wc -l)
+function count_pattern_in_files() {
+  local pattern="$1"
+  local files="$2"
+  echo $(cat $files | grep -c "$pattern")
 }
 
 PROG=$(basename "$0")
@@ -29,16 +36,32 @@ dir_log=$("$bin"/read-config.sh "DIR_ARD_LOG")
 dir_wvp=$(dirname $("$bin"/read-config.sh "DIR_WVP"))
 email_recipients=$("$bin"/read-config.sh "EMAIL_RECIPIENTS")
 
-processed_today=$(find "$dir_log" -type f -newermt "$current_date" -exec basename {} \;) # | tee $current_date"_scenes_processed.txt")
-failed=$(grep ".fail$" <<< $processed_today)
-n_processed=$([ -z "$processed_today" ] && echo 0 || echo $(wc -l <<< $processed_today))
-n_failed=$([ -z "$failed" ] && echo 0 || echo $(wc -l <<< $failed))
-n_successful=$((n_processed-n_failed))
+# Check FORCE logs
+processed_today_paths=$(find "$dir_log" -type f -newermt "$current_date")
+processed_today=$(echo "$processed_today_paths" | xargs -L1 -I{} basename "{}")
+if [ -z "$processed_today_paths" ]; then
+  echo "No log files found for today - please check!" | mail -s "FORCE processing report $current_date" "$email_recipients"
+  exit 0
+fi
 
-n_l8=$(count_by_sensor "LC08" "$processed_today")
-n_l9=$(count_by_sensor "LC09" "$processed_today")
-n_s2a=$(count_by_sensor "S2A" "$processed_today")
-n_s2b=$(count_by_sensor "S2B" "$processed_today")
+n_processed=$(wc -l <<< $processed_today)
+failed_w_error=$(grep ".fail$" <<< $processed_today)
+n_failed_w_error=$([ -z "$failed_w_error" ] && echo 0 || echo $(wc -l <<< $failed))
+if [[ -z "$failed_w_error" ]]; then
+  failed_w_error_mail_text=" "
+else
+  failed_w_error_mail_text=$(printf "%s\n" "Names of scenes that failed with errors:" "$failed_w_error")
+fi
+
+n_successful=$(count_pattern_in_files "Success" "$processed_today_paths")
+n_cloudy=$(count_pattern_in_files "Skip" "$processed_today_paths")
+n_coregfail=$(count_pattern_in_files "coreg failed" "$processed_today_paths")
+
+n_l7=$(count_pattern "LE07" "$processed_today")
+n_l8=$(count_pattern "LC08" "$processed_today")
+n_l9=$(count_pattern "LC09" "$processed_today")
+n_s2a=$(count_pattern "S2A" "$processed_today")
+n_s2b=$(count_pattern "S2B" "$processed_today")
 
 
 # Check for temporary water vapor folders
@@ -46,25 +69,28 @@ wvp_temp_folders=$(find $dir_wvp -name "hdf-20[0-9][0-9]-*" -type d)
 if [[ -z "$wvp_temp_folders" ]]; then
   wvp_warning=" "
 else
-  wvp_warning=$(printf "%s\n" "Warning" "Temporary wator vapor folders found:" "$wvp_temp_folders")
+  wvp_warning=$(printf "%s\n" "Temporary wator vapor folders found:" "$wvp_temp_folders")
 fi
 
 
 mail_body=$(cat <<EOF
 FORCE processing report ${current_date}
-Processed:    ${n_processed}
-Successful:   ${n_successful}
-Failed:       ${n_failed}
 
+Processed:      ${n_processed}
+Successful:     ${n_successful}
+Too cloudy:     ${n_cloudy}
+Coreg failed:   ${n_coregfail}
+Failed w error: ${n_failed_w_error}
+
+Landsat 7:    ${n_l7}
 Landsat 8:    ${n_l8}
 Landsat 9:    ${n_l9}
 Sentinel-2 A: ${n_s2a}
 Sentinel-2 B: ${n_s2b}
 
-Names of failed scenes:
-${failed}
-
 ${wvp_warning}
+
+${failed_w_error_mail_text}
 
 EOF
 )
