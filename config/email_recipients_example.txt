@@ -1,0 +1,3 @@
+# the name of this file must be email_recipients.txt in order to be recognized by the read-config.sh script
+# recipients of FORCE ard processing reports - separate email addresses with a colon , (no whitespace)
+EMAIL_RECIPIENTS = force_admin@example.com,force_padawan@example.com
