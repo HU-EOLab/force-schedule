@@ -11,6 +11,8 @@
 #       Also checks for orphaned files from WVP download.
 # ============================================================================
 
+set -e
+
 function count_pattern() {
   local pattern="$1"
   local input="$2"
@@ -96,3 +98,5 @@ EOF
 )
 
 echo "$mail_body" | mail -s "FORCE processing report $current_date" "$email_recipients"
+
+echo "$(date +"%H:%m:%S"): Email report sent to $email_recipients"
