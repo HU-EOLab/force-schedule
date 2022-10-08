@@ -32,9 +32,6 @@ fi
 # process L1C to ARD
 "$BIN"/ard-landsat.sh && \
 #
-# generate processing report
-"$BIN"/ard-report.sh && \
-#
 # move the queue
 mv "$FILE_LANDSAT_QUEUE" "$FILE_MV_QUEUE" && \
 #
