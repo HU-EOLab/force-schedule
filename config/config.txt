@@ -1,5 +1,4 @@
 FORCE_IMAGE = davidfrantz/force:3.7.8
-LANDSATLINKS_IMAGE = ernstste/landsatlinks
 
 USER_GROUP = jakimowb:datacube
 
@@ -23,5 +22,3 @@ FILE_ARD_LANDSAT_TM_PARAM = /data/Dagobah/dc/deu/param/ard/germany-operational-l
 DIR_ARD_CUBE = /data/Dagobah/dc/deu/ard
 DIR_ARD_LOG = /data/Dagobah/dc/deu/log
 DIR_ARD_REPORT = /data/Dagobah/dc/deu/report
-
-

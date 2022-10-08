@@ -1,11 +1,9 @@
 #!/bin/bash
 
 # ============================================================================
-# Name: send-email-report.sh
+# Name:   send-email-report.sh
 # Author: Stefan Ernst
 #         Earth Observation Lab, Humboldt-University Berlin
-# Date: 2022-06-24
-# Update: 2022-09-08
 # Desc: Check FORCE processing logs for all scenes processed to ARD
 #       the day this script is run and send an email report.
 #       Also checks for orphaned files from WVP download.
@@ -90,9 +88,9 @@ Landsat 9:    ${n_l9}
 Sentinel-2 A: ${n_s2a}
 Sentinel-2 B: ${n_s2b}
 
-${wvp_warning}
-
 ${failed_w_error_mail_text}
+
+${wvp_warning}
 
 EOF
 )

@@ -28,3 +28,7 @@ echo "Process Sentinel-2"
 
 echo "Process Landsat"
 "$BIN"/process-landsat.sh
+
+#
+# generate processing report
+"$BIN"/ard-report.sh
