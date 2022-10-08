@@ -32,9 +32,6 @@ fi
 # process L1C to ARD
 "$BIN"/ard-sentinel2.sh && \
 #
-# generate processing report
-"$BIN"/ard-report.sh && \
-#
 # move the queue
 mv "$FILE_SENTINEL2_QUEUE" "$FILE_MV_QUEUE" && \
 #
