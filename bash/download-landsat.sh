@@ -26,6 +26,7 @@ docker run \
   force-level1-landsat search \
     "$FILE_LANDSAT_AOI" \
     "$DIR_LANDSAT_IMAGES" \
+    --sensor TM,OLI \
     --cloudcover 0,70 \
     --level L1TP \
     --tier T1 \
