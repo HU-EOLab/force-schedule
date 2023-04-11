@@ -46,7 +46,7 @@ fi
 
 n_processed=$(wc -l <<< $processed_today)
 failed_w_error=$(grep ".fail$" <<< $processed_today)
-n_failed_w_error=$([ -z "$failed_w_error" ] && echo 0 || echo $(wc -l <<< $failed))
+n_failed_w_error=$([ -z "$failed_w_error" ] && echo 0 || echo $(wc -l <<< $failed_w_error))
 if [[ -z "$failed_w_error" ]]; then
   failed_w_error_mail_text=" "
 else
@@ -96,5 +96,6 @@ EOF
 )
 
 echo "$mail_body" | mail -s "FORCE processing report $current_date" "$email_recipients"
+docker run --rm -it -v /opt/server_monitor/matrix:/data matrixcommander/matrix-commander -k -m "$mail_body"
 
 echo "$(date +"%H:%m:%S"): Email report sent to $email_recipients"
