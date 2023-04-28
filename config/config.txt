@@ -18,6 +18,7 @@ FILE_SENTINEL2_AOI = /data/Dagobah/dc/deu/vector/MGRS_allowed-footprints.txt
 FILE_ARD_SENTINEL2_PARAM = /data/Dagobah/dc/deu/param/ard/germany-operational-sentinel2.prm
 FILE_ARD_LANDSAT_OLI_PARAM = /data/Dagobah/dc/deu/param/ard/germany-operational-landsat-oli.prm
 FILE_ARD_LANDSAT_TM_PARAM = /data/Dagobah/dc/deu/param/ard/germany-operational-landsat-tm.prm
+FILE_BASE_PARAM = /data/Dagobah/dc/deu/param/base/germany-base.prm
 
 DIR_ARD_CUBE = /data/Dagobah/dc/deu/ard
 DIR_ARD_LOG = /data/Dagobah/dc/deu/log
