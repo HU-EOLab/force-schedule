@@ -8,6 +8,7 @@ set -e
 
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
+DIR_CREDENTIALS=$("$BIN"/read-config.sh "DIR_CREDENTIALS")
 DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
 DIR_LANDSAT_IMAGES=$("$BIN"/read-config.sh "DIR_LANDSAT_IMAGES")
 FILE_LANDSAT_AOI=$("$BIN"/read-config.sh "FILE_LANDSAT_AOI")
@@ -16,7 +17,7 @@ USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 # query USGS M2M API for Landsat product bundles and download what hasn't been processed to ARD yet
 docker run \
   --rm \
-  -v "$HOME:/app/credentials" \
+  -v "$DIR_CREDENTIALS:/app/credentials" \
   -v /data:/data \
   -v /mnt:/mnt \
   -v "$HOME:$HOME" \
@@ -31,7 +32,7 @@ docker run \
     --level L1TP \
     --tier T1 \
     --forcelogs "$DIR_ARD_LOG" \
-    --secret "$HOME/.usgs.txt" \
+    --secret "/app/credentials/.usgs.txt" \
     --download
 
 exit 0

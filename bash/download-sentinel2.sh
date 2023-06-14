@@ -8,6 +8,7 @@ set -e
 
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
+DIR_CREDENTIALS=$("$BIN"/read-config.sh "DIR_CREDENTIALS")
 DIR_CSD_META=$("$BIN"/read-config.sh "DIR_CSD_META")
 DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
 DIR_SENTINEL2_IMAGES=$("$BIN"/read-config.sh "DIR_SENTINEL2_IMAGES")
@@ -22,7 +23,7 @@ docker run \
 --rm \
 -e FORCE_CREDENTIALS=/app/credentials \
 -e BOTO_CONFIG=/app/credentials/.boto \
--v "$HOME:/app/credentials" \
+-v "$DIR_CREDENTIALS:/app/credentials" \
 -v /data:/data \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \

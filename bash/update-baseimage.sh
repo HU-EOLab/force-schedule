@@ -9,6 +9,7 @@ BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 set -e
 
 # parse config file
+DIR_CREDENTIALS=$("$BIN"/read-config.sh "DIR_CREDENTIALS")
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 FILE_BASE_PARAM=$("$BIN"/read-config.sh "FILE_BASE_PARAM")
 USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
@@ -19,7 +20,7 @@ docker run \
 --rm \
 -e FORCE_CREDENTIALS=/app/credentials \
 -e BOTO_CONFIG=/app/credentials/.boto \
--v "$HOME:/app/credentials" \
+-v "$DIR_CREDENTIALS:/app/credentials" \
 -v /data:/data \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \

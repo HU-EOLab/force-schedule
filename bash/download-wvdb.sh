@@ -8,6 +8,7 @@ set -e
 
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
+DIR_CREDENTIALS=$("$BIN"/read-config.sh "DIR_CREDENTIALS")
 DIR_WVP=$("$BIN"/read-config.sh "DIR_WVP")
 USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
@@ -40,7 +41,7 @@ docker run \
 --rm \
 -e FORCE_CREDENTIALS=/app/credentials \
 -e BOTO_CONFIG=/app/credentials/.boto \
--v "$HOME:/app/credentials" \
+-v "$DIR_CREDENTIALS:/app/credentials" \
 -v /data:/data \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \

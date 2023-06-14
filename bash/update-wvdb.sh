@@ -64,7 +64,7 @@ rm "$CMD"
 
 
 # if failed, delete uncomplete files, and try again
-LOG=/data/Dagobah/dc/misc/wvp/log/force-lut-modis_20220327202429-try0.log
+LOG="$DIR_WVP/log/force-lut-modis_20220327202429-try0.log"
 fail=($(grep -oP '(?<=unable to open image ).*$' $LOG))
 nfail=${#fail}
 
