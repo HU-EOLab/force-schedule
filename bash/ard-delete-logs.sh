@@ -9,6 +9,7 @@ set -e
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
 DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
+DIR_CREDENTIALS=$("$BIN"/read-config.sh "DIR_CREDENTIALS")
 USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
 # preprocess the S2 L1C to L2 ARD
@@ -16,7 +17,7 @@ docker run \
 --rm \
 -e FORCE_CREDENTIALS=/app/credentials \
 -e BOTO_CONFIG=/app/credentials/.boto \
--v "$HOME:/app/credentials" \
+-v "$DIR_CREDENTIALS:/app/credentials" \
 -v /data:/data \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \

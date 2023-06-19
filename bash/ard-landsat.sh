@@ -8,6 +8,7 @@ set -e
 
 # parse config file
 IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
+DIR_CREDENTIALS=$("$BIN"/read-config.sh "DIR_CREDENTIALS")
 FILE_ARD_LANDSAT_OLI_PARAM=$("$BIN"/read-config.sh "FILE_ARD_LANDSAT_OLI_PARAM")
 FILE_ARD_LANDSAT_TM_PARAM=$("$BIN"/read-config.sh "FILE_ARD_LANDSAT_TM_PARAM")
 FILE_LANDSAT_QUEUE=$("$BIN"/read-config.sh "FILE_LANDSAT_QUEUE")
@@ -37,7 +38,7 @@ docker run \
   --rm \
   -e FORCE_CREDENTIALS=/app/credentials \
   -e BOTO_CONFIG=/app/credentials/.boto \
-  -v "$HOME":/app/credentials \
+  -v "$DIR_CREDENTIALS":/app/credentials \
   -v /data:/data \
   -v /mnt:/mnt \
   -v "$DIR_TEMP_LANDSAT_TM:$DIR_TEMP_LANDSAT_TM" \
@@ -55,7 +56,7 @@ if [ "$NUM_OLI" -gt 0 ]; then
   --rm \
   -e FORCE_CREDENTIALS=/app/credentials \
   -e BOTO_CONFIG=/app/credentials/.boto \
-  -v "$HOME:/app/credentials" \
+  -v "$DIR_CREDENTIALS:/app/credentials" \
   -v /data:/data \
   -v /mnt:/mnt \
   -v "$DIR_TEMP_LANDSAT_OLI:$DIR_TEMP_LANDSAT_OLI" \
