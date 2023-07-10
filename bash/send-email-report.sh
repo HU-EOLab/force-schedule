@@ -24,12 +24,13 @@ function count_pattern_in_files() {
 }
 
 PROG=$(basename "$0")
-if [ $# -ne 1 ] || ! ( [[ "$1" =~ ^2[0-9]{3}-[0-1][0-9]-[0-3][0-9]$ ]] && date -d "$1" >/dev/null 2>&1 ); then
-  echo "$PROG expects a date in the format YYYY-MM-DD as only argument" 1>&2;
-  exit 1
-fi
+# if [ $# -ne 1 ] || ! ( [[ "$1" =~ ^2[0-9]{3}-[0-1][0-9]-[0-3][0-9]$ ]] && date -d "$1" >/dev/null 2>&1 ); then
+#   echo "$PROG expects a date in the format YYYY-MM-DD as only argument" 1>&2;
+#   exit 1
+# fi
 
-current_date="$1"
+# current_date="$1"
+current_date="$(date +%Y-%m-%d)"
 
 bin="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 dir_log=$("$bin"/read-config.sh "DIR_ARD_LOG")
@@ -91,11 +92,10 @@ Sentinel-2 B: ${n_s2b}
 ${failed_w_error_mail_text}
 
 ${wvp_warning}
-
 EOF
 )
 
 echo "$mail_body" | mail -s "FORCE processing report $current_date" "$email_recipients"
-docker run --rm -it -v /opt/server_monitor/matrix:/data matrixcommander/matrix-commander -k -m "$mail_body"
+docker run --rm -v /opt/server_monitor/matrix:/data matrixcommander/matrix-commander -k -m "$mail_body"
 
-echo "$(date +"%H:%m:%S"): Email report sent to $email_recipients"
+echo "$(date +"%H:%M:%S"): Email report sent to $email_recipients"
