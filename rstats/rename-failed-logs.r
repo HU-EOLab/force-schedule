@@ -10,6 +10,7 @@ if (length(args) != 1) {
 }
 
 dlog <- args[1]
+print(paste0('LOG DIR=', dlog))
 
 flog <- dlog %>% dir(".log$", full.names = TRUE)
 nlog <- flog %>% length()
@@ -30,7 +31,7 @@ status[grep("coreg failed", log)] <- "Coregistration failed"
 status <- status %>% as.factor()
 nfail <- sum(status == "Error")
 
-print(nfail)
+print(paste("Failed:", nfail))
 
 if (nfail > 0) {
 
