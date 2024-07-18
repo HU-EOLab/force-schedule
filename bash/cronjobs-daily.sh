@@ -2,6 +2,7 @@
 # runs all scripts for daily datacube maintenance
 BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+{
 echo "Run update-force"
 "$BIN"/update-force.sh
 
@@ -20,3 +21,7 @@ echo "Run update-wvdb.sh"
 "$BIN"/update-wvdb.sh
 
 echo "daily updated finished"
+
+# create a log-file
+} 2>&1 | tee "$BIN"/../log/cronjobs-daily-$(date +"%Y%m%d%H%M%S").log
+

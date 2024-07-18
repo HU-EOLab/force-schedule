@@ -2,6 +2,7 @@
 # runs all scripts for daily datacube maintenance
 BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+{
 # make sure script exits if any process exits unsuccessfully
 set -e
 
@@ -29,6 +30,9 @@ echo "Process Sentinel-2"
 echo "Process Landsat"
 "$BIN"/process-landsat.sh
 
-#
 # generate processing report
 "$BIN"/ard-report.sh
+
+# create a log-file
+} 2>&1 | tee "$BIN"/../log/cronjobs-weekly-$(date +"%Y%m%d%H%M%S").log
+
