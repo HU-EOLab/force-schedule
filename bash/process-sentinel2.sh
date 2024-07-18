@@ -38,7 +38,7 @@ mv "$FILE_SENTINEL2_QUEUE" "$FILE_MV_QUEUE" && \
 # delete && remake L1C
 rm -rf "$DIR_SENTINEL2_IMAGES" && mkdir "$DIR_SENTINEL2_IMAGES" && \
 #
-# delete logfiles that are not OK -> re-download
-"$BIN"/ard-delete-logs.sh
+# rename logfiles that are not OK from *.log to *.fail -> re-download
+"$BIN"/ard-rename-logs.sh
 
 exit 0
