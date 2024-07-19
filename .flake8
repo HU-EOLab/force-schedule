@@ -1,0 +1,18 @@
+[flake8]
+ignore =
+    E501,
+    # allow line break before binary operator
+    W503,
+    # allow continuation line over-indented for hanging indent
+    E126,
+    # allow complex functions
+    C901,
+    # allow unused local variables
+    F841,
+    # allow lambda functions
+    E731
+    # allow continuation line over-indented for visual indent
+    E127
+
+max-line-length = 120
+max-complexity = 10
