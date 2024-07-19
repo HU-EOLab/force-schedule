@@ -240,7 +240,10 @@ def create_force_product_stats_db(path_product: Union[str, Path],
     print('Done!')
 
 
-def create_spatial_views(path_gpkg: Path, name_tiles: str = 'ard_tiles', name_data: str = 'ard_data'):
+def create_spatial_views(path_gpkg: Path,
+                         name_tiles: str = 'ard_tiles',
+                         name_data: str = 'ard_data',
+                         as_view: bool = False):
     if isinstance(path_gpkg, ogr.DataSource):
         ds: ogr.DataSource = path_gpkg
     else:
@@ -267,9 +270,9 @@ def create_spatial_views(path_gpkg: Path, name_tiles: str = 'ard_tiles', name_da
         T.tileid AS tileid"""
 
     sql2 = """
-        COUNT(D.tileid) as n,
-        COUNT(D.QAI) as n_qai,
-        COUNT(D.OVR) as n_ovr,
+        COUNT(*) as n,
+        SUM(D.QAI) as n_qai,
+        SUM(D.OVR) as n_ovr,
         DATE(MIN(D.date)) as obs_first,
         DATE(MAX(D.date)) as obs_last,
         DATE(MIN(D.created)) as created_first,
@@ -277,18 +280,28 @@ def create_spatial_views(path_gpkg: Path, name_tiles: str = 'ard_tiles', name_da
 
     sql3 = f"FROM {name_data} as D JOIN {name_tiles} as T ON D.tileid = T.tileid "
 
-    def create_view(view_name: str, view_definition: str):
-        sql1 = f"CREATE VIEW {view_name} AS {view_definition};"
-        sql2 = f"INSERT INTO gpkg_contents (table_name, identifier, data_type, srs_id) VALUES ( '{view_name}', '{view_name}', 'features', {srs_id});"
-        sql3 = f"INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m) values ('{view_name}', 'geom', 'GEOMETRY', {srs_id}, {has_z}, {has_m});"
-        ds.ExecuteSQL(sql1)
-        ds.ExecuteSQL(sql2)
-        ds.ExecuteSQL(sql3)
+    def derive_table(view_name: str, view_definition: str, as_view:bool):
+        if as_view:
+            sql1 = f"CREATE VIEW {view_name} AS {view_definition};"
+            sql2 = f"INSERT INTO gpkg_contents (table_name, identifier, data_type, srs_id) VALUES ( '{view_name}', '{view_name}', 'features', {srs_id});"
+            sql3 = f"INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m) values ('{view_name}', 'geom', 'GEOMETRY', {srs_id}, {has_z}, {has_m});"
+            ds.ExecuteSQL(sql1)
+            ds.ExecuteSQL(sql2)
+            ds.ExecuteSQL(sql3)
+        else:
+            with ds.ExecuteSQL(sql) as lyr:
+                lyr2: ogr.Layer = ds.CopyLayer(lyr, view_name)
+                ldef: ogr.FeatureDefn = lyr2.GetLayerDefn()
+                print(f'{ldef.GetGeomFieldDefn()}')
+                for i in range(ldef.GetFieldCount()):
+                    fdef: ogr.FieldDefn = ldef.GetFieldDefn(i)
+                    print(f'{fdef.name} {fdef.GetTypeName()}' )
 
-    create_view(f'{name_view}_byTile',
-                f"{sql1},\n{sql2}\n{sql3} GROUP BY D.tileid")
-    create_view(f'{name_view}_byTileYear',
-                f"{sql1},\nstrftime('%Y', D.date) as year,\n{sql2}\n{sql3} GROUP BY D.tileid, strftime('%Y', D.date)")
+    derive_table(f'{name_view}_byTile',
+                f"{sql1},\n{sql2}\n{sql3} GROUP BY D.tileid", as_view=as_view)
+    derive_table(f'{name_view}_byTileYear',
+                    f"{sql1},\nstrftime('%Y', D.date) as year,\n{sql2}\n{sql3} GROUP BY D.tileid, strftime('%Y', D.date)",
+                 as_view=as_view)
 
 
 if __name__ == "__main__":
