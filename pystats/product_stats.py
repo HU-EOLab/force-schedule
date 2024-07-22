@@ -152,7 +152,8 @@ def create_force_product_stats_db(path_product: Union[str, Path],
     if n_tiles_max and len(tile_folders) > n_tiles_max:
         tile_folders = tile_folders[0:n_tiles_max]
 
-    ds: ogr.DataSource = drvGPKG.CreateDataSource(path_stats_db.as_posix())
+    coptions = ['VERSION=1.4']
+    ds: ogr.DataSource = drvGPKG.CreateDataSource(path_stats_db.as_posix(), coptions)
     assert isinstance(ds, ogr.DataSource), f'unable to create {path_stats_db}'
 
     prefix = path_product.name
@@ -211,6 +212,7 @@ def create_force_product_stats_db(path_product: Union[str, Path],
                 'Search {}/{} {:0.2f}%: Found {} in {}'.format(n_done, n_total, 100 * n_done / n_total, len(file_infos),
                                                                tile_id), end='\r')
         # s = ""
+
     print('Search started...')
 
     pool = Pool(processes=n_processes)
@@ -223,7 +225,10 @@ def create_force_product_stats_db(path_product: Union[str, Path],
     lyrGridAll: ogr.Layer = dsGridAll.GetLayer(0)
 
     lyrGrid: ogr.Layer = ds.CreateLayer(lyrname_tiles, geom_type=ogr.wkbPolygon, srs=lyrGridAll.GetSpatialRef())
-    lyrGrid.CreateField(ogr.FieldDefn('tileid', ogr.OFTString))
+    fDefn = ogr.FieldDefn('tileid', ogr.OFTString)
+    fDefn.SetNullable(False)
+    fDefn.SetUnique(True)
+    lyrGrid.CreateField(fDefn)
     ldefn = lyrGrid.GetLayerDefn()
     for f in lyrGridAll:
         f: ogr.Feature
@@ -234,16 +239,30 @@ def create_force_product_stats_db(path_product: Union[str, Path],
             f2.SetField('tileid', tileid)
             lyrGrid.CreateFeature(f2)
 
+    del lyrGrid
+
     # dsGPKG: ogr.DataSource = drvGPKG.CopyDataSource(ds, path_stats_db.as_posix())
+    print('Create indices...')
+
+    r = ds.ExecuteSQL(f'CREATE UNIQUE INDEX idx_tileid1 ON {lyrname_tiles}(tileid)')
+    r = ds.ExecuteSQL(f'CREATE INDEX idx_tileid2 ON {lyrname_data}(tileid)')
+    s = ""
+
     print('Create data views...')
     create_spatial_views(ds, name_tiles=lyrname_tiles, name_data=lyrname_data)
+
+    print('Set PRAGMAS')
+    print_layer_definition(ds.ExecuteSQL('PRAGMA quick_check;'), print_features=True)
+    ds.ExecuteSQL('PRAGMA query_only=True;')
+    print_layer_definition(ds.ExecuteSQL('PRAGMA pragma_list;'), print_features=True)
+
     print('Done!')
 
 
 def create_spatial_views(path_gpkg: Path,
                          name_tiles: str = 'ard_tiles',
                          name_data: str = 'ard_data',
-                         as_view: bool = False):
+                         as_view: bool = True):
     if isinstance(path_gpkg, ogr.DataSource):
         ds: ogr.DataSource = path_gpkg
     else:
@@ -256,7 +275,7 @@ def create_spatial_views(path_gpkg: Path,
     for f in ds.ExecuteSQL(sql):
         f: ogr.Feature
         # col_geom = f.GetField('column_name')
-        # geom_type = f.GetField('geometry_type_name')
+        geom_type = f.GetField('geometry_type_name')
         srs_id = f.GetField('srs_id')
         has_z = f.GetField('z')
         has_m = f.GetField('m')
@@ -264,44 +283,59 @@ def create_spatial_views(path_gpkg: Path,
 
     # see https://gis.stackexchange.com/questions/438574/create-view-and-display-in-qgis-of-a-spatial-table-in-geopackage-or-spatialite
     # see https://gdal.org/drivers/vector/gpkg.html
-    sql1 = """
-        SELECT T.fid AS OGC_FID,
-        T.geom AS geom,
-        T.tileid AS tileid"""
+    sql1 = """SELECT 
+    T.fid AS OGC_FID,
+    T.geom AS geom,
+    T.tileid AS tileid"""
 
-    sql2 = """
-        COUNT(*) as n,
-        SUM(D.QAI) as n_qai,
-        SUM(D.OVR) as n_ovr,
-        DATE(MIN(D.date)) as obs_first,
-        DATE(MAX(D.date)) as obs_last,
-        DATE(MIN(D.created)) as created_first,
-        DATE(MAX(D.created)) as created_last """
+    sql2 = """      COUNT(*) as n,
+    SUM(D.QAI) as n_qai,
+    SUM(D.OVR) as n_ovr,
+    DATE(MIN(D.date)) as obs_first,
+    DATE(MAX(D.date)) as obs_last,
+    DATE(MIN(D.created)) as created_first,
+    DATE(MAX(D.created)) as created_last """
 
-    sql3 = f"FROM {name_data} as D JOIN {name_tiles} as T ON D.tileid = T.tileid "
+    sql3 = f"FROM {name_data} as D JOIN {name_tiles} as T\nON D.tileid = T.tileid "
 
-    def derive_table(view_name: str, view_definition: str, as_view:bool):
+    def derive_table(view_name: str, view_definition: str, as_view: bool):
         if as_view:
-            sql1 = f"CREATE VIEW {view_name} AS {view_definition};"
+            sql1 = f"CREATE VIEW {view_name} AS\n{view_definition};"
             sql2 = f"INSERT INTO gpkg_contents (table_name, identifier, data_type, srs_id) VALUES ( '{view_name}', '{view_name}', 'features', {srs_id});"
-            sql3 = f"INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m) values ('{view_name}', 'geom', 'GEOMETRY', {srs_id}, {has_z}, {has_m});"
+            sql3 = f"INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m) values ('{view_name}', 'geom', '{geom_type}', {srs_id}, {has_z}, {has_m});"
             ds.ExecuteSQL(sql1)
             ds.ExecuteSQL(sql2)
             ds.ExecuteSQL(sql3)
         else:
             with ds.ExecuteSQL(sql) as lyr:
                 lyr2: ogr.Layer = ds.CopyLayer(lyr, view_name)
-                ldef: ogr.FeatureDefn = lyr2.GetLayerDefn()
-                print(f'{ldef.GetGeomFieldDefn()}')
-                for i in range(ldef.GetFieldCount()):
-                    fdef: ogr.FieldDefn = ldef.GetFieldDefn(i)
-                    print(f'{fdef.name} {fdef.GetTypeName()}' )
+                print_layer_definition(lyr2)
 
     derive_table(f'{name_view}_byTile',
-                f"{sql1},\n{sql2}\n{sql3} GROUP BY D.tileid", as_view=as_view)
+                 f"{sql1},\n{sql2}\n{sql3}\nGROUP BY D.tileid", as_view=as_view)
     derive_table(f'{name_view}_byTileYear',
-                    f"{sql1},\nstrftime('%Y', D.date) as year,\n{sql2}\n{sql3} GROUP BY D.tileid, strftime('%Y', D.date)",
+                 f"{sql1},\nstrftime('%Y', D.date) as year,\n{sql2}\n{sql3}\nGROUP BY D.tileid, strftime('%Y', D.date)",
                  as_view=as_view)
+
+
+def print_layer_definition(layer: ogr.Layer, print_features: bool = False):
+    ldef: ogr.FeatureDefn = layer.GetLayerDefn()
+    print(f'Layer {layer.GetName()}:')
+    print(f'Geometry Field(s): {ldef.GetGeomFieldCount()}')
+    for i in range(ldef.GetGeomFieldCount()):
+        fdef: ogr.GeomFieldDefn = ldef.GetGeomFieldDefn(i)
+        print(f'{i + 1:1}: {fdef.GetName()}: {fdef.GetType()}')
+
+    print(f'Field(s): {ldef.GetFieldCount()}')
+    for i in range(ldef.GetFieldCount()):
+        fdef: ogr.FieldDefn = ldef.GetFieldDefn(i)
+        print(f'{i + 1:2}: {fdef.GetName()}: {fdef.GetTypeName()}')
+        s = ""
+    if print_features:
+        for i, f in enumerate(layer):
+            f: ogr.Feature
+            values = ', '.join([str(f.GetField(n)) for n in range(ldef.GetFieldCount())])
+            print(f'Feature {f.GetFID()}: {values}')
 
 
 if __name__ == "__main__":
@@ -349,3 +383,9 @@ if __name__ == "__main__":
                                   path_grid=args.grid_db,
                                   n_tiles_max=args.max_tiles,
                                   n_processes=args.n_processes)
+
+    if True:
+        ds: ogr.DataSource = ogr.Open(args.stats_db.as_posix())
+        print_layer_definition(ds.GetLayerByName('ard_tiles'))
+        print_layer_definition(ds.GetLayerByName('ard_data'))
+        print_layer_definition(ds.GetLayerByName('ard_data_byTile'))
