@@ -152,7 +152,7 @@ def create_force_product_stats_db(path_product: Union[str, Path],
     if n_tiles_max and len(tile_folders) > n_tiles_max:
         tile_folders = tile_folders[0:n_tiles_max]
 
-    coptions = ['VERSION=1.4']
+    coptions = [] #  ['VERSION=1.4']
     ds: ogr.DataSource = drvGPKG.CreateDataSource(path_stats_db.as_posix(), coptions)
     assert isinstance(ds, ogr.DataSource), f'unable to create {path_stats_db}'
 
