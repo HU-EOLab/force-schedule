@@ -384,8 +384,3 @@ if __name__ == "__main__":
                                   n_tiles_max=args.max_tiles,
                                   n_processes=args.n_processes)
 
-    if True:
-        ds: ogr.DataSource = ogr.Open(args.stats_db.as_posix())
-        print_layer_definition(ds.GetLayerByName('ard_tiles'))
-        print_layer_definition(ds.GetLayerByName('ard_data'))
-        print_layer_definition(ds.GetLayerByName('ard_data_byTile'))
