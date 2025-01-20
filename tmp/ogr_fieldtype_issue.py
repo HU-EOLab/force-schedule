@@ -7,6 +7,9 @@ path_ard_stats = Path(__file__).parent / 'ard_stats.gpkg'
 
 ds: DataSource = Open(path_ard_stats.as_posix())
 
+from pystats.product_stats import print_layer_definition
+print_layer_definition()
+
 # print definition of data view "ard_data_byTile"
 with ds.ExecuteSQL("SELECT sql FROM sqlite_schema WHERE name='ard_data_byTile'") as lyr:
     for f in lyr:

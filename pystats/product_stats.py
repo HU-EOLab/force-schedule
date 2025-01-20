@@ -288,9 +288,9 @@ def create_spatial_views(path_gpkg: Path,
     T.geom AS geom,
     T.tileid AS tileid"""
 
-    sql2 = """      COUNT(*) as n,
-    SUM(D.QAI) as n_qai,
-    SUM(D.OVR) as n_ovr,
+    sql2 = """      CAST(COUNT(*) as int) as n,
+    CAST(SUM(D.QAI) as int) as n_qai,
+    CAST(SUM(D.OVR) as int) as n_ovr,
     DATE(MIN(D.date)) as obs_first,
     DATE(MAX(D.date)) as obs_last,
     DATE(MIN(D.created)) as created_first,
