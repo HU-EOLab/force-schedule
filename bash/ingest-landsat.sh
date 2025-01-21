@@ -12,7 +12,7 @@ set -e
 
 
 # download landsat data
-"$BIN"/download-landsat.sh && \
+"$BIN"/download-landsat-links.sh && \
 #
 # extract the data, build queue
 "$BIN"/extract-landsat-links.sh
