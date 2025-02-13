@@ -7,10 +7,12 @@ BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 set -e
 
 # update metadata catalogue
-"$BIN"/update-metadata-csd.sh && \
+# "$BIN"/update-metadata-csd.sh && \
 #
 # download data
-"$BIN"/download-sentinel2.sh
+# "$BIN"/download-sentinel2.sh
+
+"$BIN"/download-sentinel2-cdse.sh
 
 exit 0
 
