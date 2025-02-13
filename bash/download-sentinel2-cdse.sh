@@ -28,7 +28,7 @@ FN_AOI=$(basename "$FILE_SENTINEL2_AOI")
 # download Sentinel-2 L1C images that weren't processed to ARD yet
 # -u "$USER_GROUP" \
 
-if false; then
+if true; then
 echo "search with vudongpham/cdse-s2"
 docker run --rm \
     -v $FILE_SENTINEL2_AOI:/input/aoi.txt \
@@ -48,7 +48,7 @@ docker run --rm \
 fi
 
 # download query_latest.json
-if false; then
+if true; then
 echo "download S2 files"
   docker run --rm \
     -v $DIR_CSD_META:/input/meta \
