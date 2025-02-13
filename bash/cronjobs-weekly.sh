@@ -34,5 +34,5 @@ echo "Process Landsat"
 "$BIN"/ard-report.sh
 
 # create a log-file
-} 2>&1 | tee "$BIN"/../log/cronjobs-weekly-$(date +"%Y%m%d%H%M%S").log
+} 2>&1 | tee "$BIN"/../log/weekly/cronjobs-weekly-$(date +"%Y%m%d%H%M%S").log
 

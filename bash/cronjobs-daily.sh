@@ -23,5 +23,5 @@ echo "Run update-wvdb.sh"
 echo "daily updated finished"
 
 # create a log-file
-} 2>&1 | tee "$BIN"/../log/cronjobs-daily-$(date +"%Y%m%d%H%M%S").log
+} 2>&1 | tee "$BIN"/../log/daily/cronjobs-daily-$(date +"%Y%m%d%H%M%S").log
 
