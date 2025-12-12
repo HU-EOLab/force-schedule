@@ -1,4 +1,4 @@
-FORCE_IMAGE = davidfrantz/force:3.7.12
+FORCE_IMAGE = davidfrantz/force:3.8.01
 
 USER_GROUP = jakimowb:datacube
 
