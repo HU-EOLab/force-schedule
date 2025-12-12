@@ -16,19 +16,10 @@ FILE_SENTINEL2_QUEUE=$("$BIN"/read-config.sh "FILE_SENTINEL2_QUEUE")
 FILE_SENTINEL2_AOI=$("$BIN"/read-config.sh "FILE_SENTINEL2_AOI")
 USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
 
-# test settings
-#DIR_TEST=/data/Aldhani/dc/input/test
-# FILE_SENTINEL2_AOI="$DIR_TEST/test_mgrs_tiles.txt"
-# DIR_CSD_META="$DIR_TEST/meta"
-#DIR_SENTINEL2_IMAGES="$DIR_TEST/images"
-#FILE_SENTINEL2_QUEUE="$DIR_TEST/queue.txt"
-
 FN_AOI=$(basename "$FILE_SENTINEL2_AOI")
+set -e
 
-# download Sentinel-2 L1C images that weren't processed to ARD yet
-# -u "$USER_GROUP" \
-
-if false; then
+if true; then
 echo "search with vudongpham/cdse-s2"
 docker run --rm \
     -v $FILE_SENTINEL2_AOI:/input/aoi.txt \
@@ -48,7 +39,7 @@ docker run --rm \
 fi
 
 # download query_latest.json
-if false; then
+if true; then
 echo "download S2 files"
   docker run --rm \
     -v $DIR_CSD_META:/input/meta \
@@ -61,8 +52,9 @@ echo "download S2 files"
 fi
 
 if true; then
-  echo "unzip downloaded files"
-  ls $DIR_SENTINEL2_IMAGES/S2*.zip | parallel -j4 unzip -oq -d $DIR_SENTINEL2_IMAGES {}
+  #echo "unzip downloaded files"
+
+  ls $DIR_SENTINEL2_IMAGES/S2*.zip | parallel -j4 unzip -o -q -d $DIR_SENTINEL2_IMAGES {} || true
 
   echo "remove zip files if SAVE exists"
   for path in $DIR_SENTINEL2_IMAGES/S2*.zip; do
@@ -74,9 +66,10 @@ if true; then
   done
 
   echo "write $FILE_SENTINEL2_QUEUE"
-  echo "ls $DIR_SENTINEL2_IMAGES"
-  ls -d $DIR_SENTINEL2_IMAGES/S2*.SAFE > "$FILE_SENTINEL2_QUEUE"
+  echo "Add images to queue:"
+  ls -d $DIR_SENTINEL2_IMAGES/S2*.SAFE | tee "$FILE_SENTINEL2_QUEUE"
   sed -i 's/$/ QUEUED/' "$FILE_SENTINEL2_QUEUE"
+  echo "download & extraction done"
 fi
 exit 0
 

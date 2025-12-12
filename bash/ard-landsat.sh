@@ -29,8 +29,11 @@ grep "LC08_\|LC09_"  "$FILE_LANDSAT_QUEUE" > "$FILE_LANDSAT_QUEUE_OLI"
 set -e
 
 # count queue
-NUM_TM=$(echo "$FILE_LANDSAT_QUEUE_TM" | wc -w)
-NUM_OLI=$(echo "$FILE_LANDSAT_QUEUE_OLI" | wc -w)
+NUM_TM=$(wc -l < $FILE_LANDSAT_QUEUE_TM)
+NUM_OLI=$(wc -l < $FILE_LANDSAT_QUEUE_OLI)
+
+echo "NUM_TM  $NUM_TM"
+echo "NUM_OLI $NUM_OLI"
 
 # preprocess Landsat TM/ETM L1TP to L2 ARD
 if [ "$NUM_TM" -gt 0 ]; then
