@@ -1,0 +1,16 @@
+# force-schedule python environment
+# run to install: conda env create --file=force-schedule.yml
+# run to update: conda env update --file=force-schedule.yml --prune
+# run to delete: conda env remove -n force-schedule
+
+name: force-schedule
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12 
+  - tqdm # to show progress
+  - pip
+  - eodag # to download EO data
+  - gdal
+  - duckdb # to save FORCE stats
+

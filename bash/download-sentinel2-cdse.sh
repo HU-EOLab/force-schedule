@@ -6,15 +6,28 @@ BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # make sure script exits if any process exits unsuccessfully
 set -e
 
+# get config file
+if [ $# -ge 1 ]; then
+CONFIG=$1
+shift
+else
+  CONFIG="../config/config.txt"
+fi
+
+EXTRA_ARGS=("$@")
+
 # parse config file
-IMAGE=$("$BIN"/read-config.sh "FORCE_IMAGE")
-DIR_CREDENTIALS=$("$BIN"/read-config.sh "DIR_CREDENTIALS")
-DIR_CSD_META=$("$BIN"/read-config.sh "DIR_CSD_META")
-DIR_ARD_LOG=$("$BIN"/read-config.sh "DIR_ARD_LOG")
-DIR_SENTINEL2_IMAGES=$("$BIN"/read-config.sh "DIR_SENTINEL2_IMAGES")
-FILE_SENTINEL2_QUEUE=$("$BIN"/read-config.sh "FILE_SENTINEL2_QUEUE")
-FILE_SENTINEL2_AOI=$("$BIN"/read-config.sh "FILE_SENTINEL2_AOI")
-USER_GROUP=$("$BIN"/read-usergroup-ids.sh)
+IMAGE=$("$BIN"/read-config2.sh "FORCE_IMAGE" "$CONFIG" )
+DIR_CREDENTIALS=$("$BIN"/read-config2.sh "DIR_CREDENTIALS" "$CONFIG" )
+DIR_CSD_META=$("$BIN"/read-config2.sh "DIR_CSD_META" "$CONFIG" )
+DIR_ARD_LOG=$("$BIN"/read-config2.sh "DIR_ARD_LOG" "$CONFIG" )
+DIR_SENTINEL2_IMAGES=$("$BIN"/read-config2.sh "DIR_SENTINEL2_IMAGES" "$CONFIG" )
+FILE_SENTINEL2_QUEUE=$("$BIN"/read-config2.sh "FILE_SENTINEL2_QUEUE" "$CONFIG" )
+FILE_SENTINEL2_AOI=$("$BIN"/read-config2.sh "FILE_SENTINEL2_AOI" "$CONFIG" )
+USER_GROUP=$("$BIN"/read-config2.sh "USER_GROUP" "$CONFIG"  "$(id -u):$(id -g)")
+USER_GROUP=$("$BIN"/get_uid_gid.sh "$USER_GROUP")
+
+DATERANGE="20260101,20260105"
 
 FN_AOI=$(basename "$FILE_SENTINEL2_AOI")
 set -e
@@ -25,8 +38,8 @@ docker run --rm \
     -v $FILE_SENTINEL2_AOI:/input/aoi.txt \
     -v $DIR_CSD_META:/input/meta \
     -v $DIR_ARD_LOG:/input/forcelogs \
-    vudongpham/cdse-s2 search \
-    --daterange 20240101,20991231 \
+    vudongpham/cdse-s2 cdse-search \
+    --daterange $DATERANGE \
     --cloudcover 0,70 \
     --forcelogs "/input/forcelogs" \
     "/input/aoi.txt" \
@@ -45,7 +58,7 @@ echo "download S2 files"
     -v $DIR_CSD_META:/input/meta \
     -v $DIR_CREDENTIALS/.cdse:/app/credentials/.cdse \
     -v $DIR_SENTINEL2_IMAGES:/output/images \
-    vudongpham/cdse-s2 download \
+    vudongpham/cdse-s2 cdse-download \
     /input/meta/query_latest.json \
     /output/images \
     /app/credentials/.cdse
