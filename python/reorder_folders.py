@@ -10,7 +10,7 @@ from functools import total_ordering
 from pathlib import Path
 from typing import Dict, List, Tuple
 from concurrent.futures import ThreadPoolExecutor
-from python.utils import CubeConfig, rx_tile_id, rx_level2_product
+from python.forceschedule.utils import CubeConfig, rx_tile_id, rx_level2_product
 import itertools
 
 def check_subdirs(cube_root: Path):

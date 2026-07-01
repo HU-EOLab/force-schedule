@@ -7,10 +7,15 @@ name: force-schedule
 channels:
   - conda-forge
 dependencies:
-  - python=3.12 
+  - python=3.12
   - tqdm # to show progress
   - pip
   - eodag # to download EO data
   - gdal
   - duckdb # to save FORCE stats
+  - pandas
 
+  # developer tools
+  - bandit
+  - flake8
+  - ruff

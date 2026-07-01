@@ -1,32 +1,37 @@
-
 """
 General python utils to operate on the FORCE datacube
 """
 import os
 import re
 from pathlib import Path
-from typing import Dict
-
+from typing import Dict, Optional, Union
 
 # regex to match tile-ids
 rx_tile_id = re.compile(r'^X\d{4}_Y\d{4}$')
 rx_tile = re.compile(r'.*(?P<tileid>X\d{4}_Y\d{4}).*')
 
-rx_level2_product = re.compile(r'(?P<date>\d{8})_LEVEL2_(?P<sensor>[^_. ]+)_(?P<product>[^_. ]+)\.(?P<ext>tif|bsq|bil|bip|cog)$')
+rx_level2_product = re.compile(
+    r'(?P<date>\d{8})_LEVEL2_(?P<sensor>[^_. ]+)_(?P<product>[^_. ]+)\.(?P<ext>tif|bsq|bil|bip|cog)$')
 
 root = Path(__file__).parents[1]
 
+
 class CubeConfig(object):
-    
-    def __init__(self, replace:Dict[str, str]=None):
-        
-        path = root / 'config' / 'config.txt'
-        assert path.is_file()
+
+    def __init__(
+        self,
+        path: Union[Path, str],
+        replace: Optional[Dict[str, str]] = None
+    ):
+
+        path = Path(path)
+        if not path.is_file():
+            raise FileNotFoundError(f"Config file {path} not found")
 
         with open(path, 'r') as f:
             data = [l.strip() for l in f.read().split('\n')]
             data = [l.strip().split('=') for l in data if len(l) > 0]
-            data = {kv[0].strip():kv[1].strip() for kv in data}
+            data = {kv[0].strip(): kv[1].strip() for kv in data}
 
         if replace is None and 'FORCETOOLS_REPLACEPATH' in os.environ:
             replace = dict()
@@ -37,7 +42,7 @@ class CubeConfig(object):
         if replace is None:
             replace = dict()
 
-        def get_path(key:str) -> Path:
+        def get_path(key: str) -> Path:
             path = data[key]
             for k, v in replace.items():
                 if path.startswith(k):
@@ -72,7 +77,6 @@ class CubeConfig(object):
 
         self._data = data
 
-
     def path_check(self):
         errors = []
         for k, v in self.__dict__.items():
@@ -81,6 +85,13 @@ class CubeConfig(object):
             elif k.startswith('DIR'):
                 assert isinstance(v, Path) and v.is_dir()
 
+    def map(self) -> Dict[str, str]:
+
+        d = {}
+        for k, v in self.__dict__.items():
+            d[k] = str(v)
+        return d
+
 
 def cubeConfig() -> CubeConfig:
     """
@@ -88,4 +99,3 @@ def cubeConfig() -> CubeConfig:
     :return: 
     """
     return CubeConfig()
-        
