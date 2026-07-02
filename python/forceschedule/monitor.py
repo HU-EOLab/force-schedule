@@ -1,5 +1,5 @@
 import datetime
-import re
+import os
 from itertools import chain
 from pathlib import Path
 from typing import Union, Optional, Dict, Any, Generator, List
@@ -7,6 +7,8 @@ from typing import Union, Optional, Dict, Any, Generator, List
 import duckdb
 import pandas as pd
 from tqdm import tqdm
+
+from forceschedule.utils import FORCEConfig, find_tile_folders, rx_level2_product
 
 
 class FORCEMonitor(object):
@@ -17,14 +19,22 @@ class FORCEMonitor(object):
 
     def __init__(
         self,
+        config: Union[None, FORCEConfig, str, Path] = None,
         replace: Optional[Dict[str, str]] = None,
     ):
 
         if replace is None:
             replace = dict()
+        self.replace = replace
 
         self.con = duckdb.connect(database=':memory:')
-        self.replace = replace
+        self.config: Optional[FORCEConfig] = None
+        if isinstance(config, (str, Path)):
+            self.initDB()
+            self.load_config(config)
+        elif isinstance(config, FORCEConfig):
+            self.initDB()
+            self.config = config
 
     def initDB(self):
         """
@@ -67,26 +77,31 @@ class FORCEMonitor(object):
             raise KeyError(f"Key not found in config table: {key}")
 
     def load_config(self, path: Union[Path, str]):
-        path = Path(path)
-        if not path.is_file():
-            raise FileNotFoundError(f"Config file not found: {path}")
 
-        with open(path, 'r') as f:
-            data = [l.strip() for l in f.read().split('\n')]
-            data = [l.strip().split('=') for l in data if len(l) > 0]
-            data = {kv[0].strip(): kv[1].strip() for kv in data}
+        config = FORCEConfig(path, replace=self.replace)
+        self.config = config
+        to_insert = list(
+            (k, str(v))
+            for k, v in config.__dict__.items() if not k.startswith('_')
+        )
+        self.con.executemany(
+            f"INSERT OR REPLACE INTO {self.TABLE_CONFIG} "
+            f"(key, value) VALUES (?, ?)", to_insert
+        )
 
-        if isinstance(self.replace, dict):
-            for k in list(data.keys()):
-                if re.search(r'^(DIR|FILE)_', k):
-                    v = data[k]
-                    for k2, v2 in self.replace.items():
-                        if v.startswith(k2):
-                            data[k] = v2 + v.removeprefix(k2)
+    def load_config_from_db(self):
 
-        to_insert = list(data.items())
-        self.con.executemany(f"INSERT OR REPLACE INTO {self.TABLE_CONFIG} (key, value) VALUES (?, ?)", to_insert)
-        s = ""
+        config = FORCEConfig()
+
+        for (k, v) in self.con.execute(
+            f"SELECT * FROM {self.TABLE_CONFIG};"
+        ).fetchall():
+            if k in config.__dict__:
+                setattr(config, k, type(config.__dict__[k])(v))
+            else:
+                raise KeyError(f"Key not found in config table: {k}")
+
+        self.config = config
 
     def get_log_files(
         self,
@@ -109,6 +124,9 @@ class FORCEMonitor(object):
 
     def status(self) -> str:
 
+        if not self.config:
+            raise ValueError("Config not loaded")
+
         query = ("SELECT COUNT(*) FROM ard_log "
                  "WHERE failed = TRUE")
         n_failed = self.con.execute(query).fetchone()[0]
@@ -129,7 +147,40 @@ class FORCEMonitor(object):
 
         return '\n'.join(info)
 
-    def _update_ard_tiles(self):
+    def _update_ard_tiles(
+        self,
+        n_workers: int = 2,
+        patterns: List[str] = ["*.tif", "*.tiff"]
+    ):
+
+        tiles = list(find_tile_folders(self.config.DIR_ARD_CUBE))
+
+        data = []
+        for tile in tqdm(tiles, desc='Updating ARD tiles'):
+
+            files = [e for e in os.scandir(tile) if e.is_file()]
+            file_infos = []
+            for f in files:
+                if match := rx_level2_product.match(f.name):
+                    date = match.group('date')
+                    sensor = match.group('sensor')
+                    product = match.group('product')
+                    extension = match.group('ext')
+                    p = Path(f)
+                    stat = p.stat()
+                    m_time = datetime.datetime.fromtimestamp(stat.st_mtime)
+
+                    info = {'tile': tile
+                        , 'date': datetime.date.fromisoformat(date)
+                        , 'sensor': sensor
+                        , 'product': product
+                        , 'extension': extension
+                        , 'path': str(p)
+                        , 'm_time': m_time
+                        , 'st_size': stat.st_size
+                            }
+                    file_infos.append(info)
+
         pass
 
     def _update_ard_log(
@@ -140,8 +191,7 @@ class FORCEMonitor(object):
 
         patterns = ["*.log", "*.fail"]
         files = list(
-            self.get_log_files(
-                self._config_value(self.C_DIR_ARD_LOG), patterns=patterns)
+            self.get_log_files(self.config.DIR_ARD_LOG, patterns=patterns)
         )
         payload = []
 
@@ -164,7 +214,8 @@ class FORCEMonitor(object):
                  }
             )
         if len(payload) == 0:
-            print(f"No log files found for pattern '{patterns}' created between {m_time_min} and {m_time_max}")
+            print(f"No log files found for pattern '{patterns}' "
+                  f"created between {m_time_min} and {m_time_max}")
             return
 
         df_staging = pd.DataFrame(payload)
@@ -172,9 +223,10 @@ class FORCEMonitor(object):
         # 3. Bulk insert using ON CONFLICT in a single query
         self.con.execute(
             f"""
-            INSERT INTO {self.TABLE_ARD_LOG} (name, sceneid, failed, m_time, path) 
-            SELECT name, sceneid, failed, m_time, path  
-            FROM df_param  
+             INSERT INTO {self.TABLE_ARD_LOG}
+              (name, sceneid, failed, m_time, path)
+              SELECT name, sceneid, failed, m_time, path
+              FROM df_param
             """
         )
         self.con.unregister("df_param")
@@ -206,13 +258,17 @@ class FORCEMonitor(object):
         # update the ARD tile table
         self._update_ard_tiles()
 
-    def logfile_content(self, scene_id: str) -> Generator[Dict[str, Any], Any, None]:
+    def logfile_content(
+        self,
+        scene_id: str
+    ) -> Generator[Dict[str, Any], Any, None]:
         """
         Returns the content of the log file for a given sceneid or file path
         """
 
         query = (f"SELECT * FROM {self.TABLE_ARD_LOG} "
-                 f"WHERE sceneid = '{scene_id}' OR path = '{scene_id}' OR name = '{scene_id}'")
+                 f"WHERE sceneid = '{scene_id}' "
+                 f"OR path = '{scene_id}' OR name = '{scene_id}'")
 
         cursor = self.con.execute(query)
         columns = [col[0] for col in cursor.description]
@@ -233,6 +289,7 @@ class FORCEMonitor(object):
         con = monitor.con
         con.execute(f"IMPORT DATABASE '{path}';")
         print(con.execute("SHOW TABLES;").fetchall())
+        monitor.load_config_from_db()
         return monitor
 
     def saveDB(self, path):

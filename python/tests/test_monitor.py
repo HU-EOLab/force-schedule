@@ -4,6 +4,7 @@ from pathlib import Path
 from tqdm.auto import tqdm
 
 from forceschedule.monitor import FORCEMonitor
+from forceschedule.utils import FORCEMonitorTestCase
 
 PATH_SETTINGS = "~/Mount/Aldhani/dc/force-schedule/config/config.txt"
 PATH_SETTINGS = Path(PATH_SETTINGS).expanduser()
@@ -17,18 +18,21 @@ def test_output_dir() -> Path:
     return d
 
 
-class MyTestCase(unittest.TestCase):
+class MyTestCase(FORCEMonitorTestCase):
 
     def test_monitor_update(self):
-        path_save = test_output_dir() / 'monitor.duckdb'
+
+        tmp = self.createTestOutputDirectory()
+        path_save = tmp / 'monitor.duckdb'
         path_save.mkdir(exist_ok=True)
 
         monitor = FORCEMonitor(replace=replace)
+        monitor.initDB()
+        monitor.load_config(PATH_SETTINGS)
 
         min_time = '2026-01-01 00:00:00'
         max_time = '2026-03-01 23:59:59'
-        monitor.initDB()
-        monitor.load_config(PATH_SETTINGS)
+
         monitor.update_db(min_time=min_time, max_time=max_time)
         print(monitor.status())
         monitor.update_db(min_time=max_time)
@@ -36,7 +40,8 @@ class MyTestCase(unittest.TestCase):
         monitor.saveDB(path_save)
 
     def test_monitor(self):
-        path_save = test_output_dir() / 'monitor.duckdb'
+        tmp = self.createTestOutputDirectory()
+        path_save = tmp / 'monitor.duckdb'
 
         if not path_save.is_dir():
             path_save.mkdir(exist_ok=True)
@@ -57,9 +62,11 @@ class MyTestCase(unittest.TestCase):
         cursor = monitor.con.execute(query)
         columns = [col[0] for col in cursor.description]
 
-        error = 'could not create image to image transformer. Warping base failed! coregistration failed'
+        error = ('could not create image to image transformer. '
+                 'Warping base failed! coregistration failed')
 
-        for row in tqdm(cursor.fetchall(), desc='Read content of failed log files'):
+        for row in tqdm(cursor.fetchall(),
+                        desc='Read content of failed log files'):
             data = dict(zip(columns, row))
             if 'content' not in data:
                 with open(data['path'], 'r') as f:
@@ -67,18 +74,14 @@ class MyTestCase(unittest.TestCase):
             content = data['content']
             if error not in content:
                 print(f'DIFFERENT ERROR: {data["path"]}')
-                print(error)
-
-    def test_logfiles(self):
-        monitor = FORCEMonitor(replace=replace)
-        monitor.load_config(PATH_SETTINGS)
-
-        monitor._update_ard_tiles()
+                print(content)
 
     def test_monitor_load_tiles(self):
-        path_save = test_output_dir() / 'monitor.duckdb'
+        tmp = self.createTestOutputDirectory()
+        path_save = tmp / 'monitor.duckdb'
         path_save.mkdir(exist_ok=True)
-        monitor = FORCEMonitor.loadDB(path_save)
+        monitor = FORCEMonitor(config=PATH_SETTINGS, replace=replace)
+        monitor.initDB()
         monitor._update_ard_tiles()
 
 
