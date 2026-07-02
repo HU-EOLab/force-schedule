@@ -4,3 +4,4 @@ config/config.txt
 config/email_recipients.txt
 cron/cron.sh
 tmp
+test-outputs/
