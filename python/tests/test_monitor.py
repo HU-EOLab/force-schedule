@@ -1,6 +1,8 @@
 import unittest
 from pathlib import Path
 
+import duckdb
+from _duckdb import InvalidInputException
 from tqdm.auto import tqdm
 
 from forceschedule.monitor import FORCEMonitor
@@ -9,7 +11,7 @@ from forceschedule.utils import FORCEMonitorTestCase
 PATH_SETTINGS = "~/Mount/Aldhani/dc/force-schedule/config/config.txt"
 PATH_SETTINGS = Path(PATH_SETTINGS).expanduser()
 
-replace = {'/data/Aldhani': '/home/jakimowb/Mount/Aldhani'}
+REPLACE = {'/data/Aldhani': '/home/jakimowb/Mount/Aldhani'}
 
 
 def test_output_dir() -> Path:
@@ -20,13 +22,61 @@ def test_output_dir() -> Path:
 
 class MyTestCase(FORCEMonitorTestCase):
 
+    @classmethod
+    def setUpClass(cls):
+
+        tmp = cls.createTestOutputDirectory()
+        path_save = tmp / 'monitor.duckdb'
+        if not path_save.is_file():
+            # path_save.mkdir(exist_ok=True)
+            monitor = FORCEMonitor(replace=REPLACE)
+            monitor.initDB()
+            monitor.load_config(PATH_SETTINGS)
+            monitor.update_db()
+            print(monitor.status())
+            monitor.saveDB(path_save)
+
+        con = duckdb.connect(path_save, read_only=True)
+        monitor = FORCEMonitor(replace=REPLACE, connection=con)
+        cls.IMMUTABLE_MONITOR = monitor
+        cls.IMMUTABLE_MONITOR_SRC = path_save
+
+    def test_immutable_monitor(self):
+        # create immutable monitor
+
+        self.assertIsInstance(self.IMMUTABLE_MONITOR, FORCEMonitor)
+
+        # try to add a table
+        with self.assertRaises(InvalidInputException):
+            self.IMMUTABLE_MONITOR.con.execute("CREATE TABLE test (a int);")
+
+    def test_monitor_readlogs(self):
+
+        monitor = self.IMMUTABLE_MONITOR
+
+        query = ("SELECT path FROM ard_log "
+                 "WHERE SCENEID LIKE 'S2%_MSIL1C_2026%' "
+                 "AND failed = True "
+                 "ORDER BY SCENEID"
+                 "")
+
+        for r in monitor.con.execute(query).fetchmany(10):
+            p = Path(r[0])
+
+            with open(p, 'r') as f:
+                content = f.read()
+                print(content)
+                s = ""
+
+        s = ""
+
     def test_monitor_update(self):
 
         tmp = self.createTestOutputDirectory()
         path_save = tmp / 'monitor.duckdb'
         path_save.mkdir(exist_ok=True)
 
-        monitor = FORCEMonitor(replace=replace)
+        monitor = FORCEMonitor(replace=REPLACE)
         monitor.initDB()
         monitor.load_config(PATH_SETTINGS)
 
@@ -39,22 +89,27 @@ class MyTestCase(FORCEMonitorTestCase):
         print(monitor.status())
         monitor.saveDB(path_save)
 
-    def test_monitor(self):
+    def load_log_db(self) -> FORCEMonitor:
         tmp = self.createTestOutputDirectory()
         path_save = tmp / 'monitor.duckdb'
 
         if not path_save.is_dir():
             path_save.mkdir(exist_ok=True)
-            monitor = FORCEMonitor(replace=replace)
+            monitor = FORCEMonitor(replace=REPLACE)
             monitor.initDB()
             monitor.load_config(PATH_SETTINGS)
             monitor.update_db()
             print(monitor.status())
             monitor.saveDB(path_save)
 
-        monitor = FORCEMonitor.loadDB(path_save)
-        monitor.status()
-        monitor._update_ard_tiles()
+        monitor = FORCEMonitor(replace=REPLACE)
+        monitor.initDB()
+        monitor.load_config(PATH_SETTINGS)
+        return monitor
+
+    def test_read_error_messages(self):
+
+        monitor = self.IMMUTABLE_MONITOR
 
         query = ("SELECT * FROM ard_log "
                  "WHERE failed = True")
@@ -77,11 +132,8 @@ class MyTestCase(FORCEMonitorTestCase):
                 print(content)
 
     def test_monitor_load_tiles(self):
-        tmp = self.createTestOutputDirectory()
-        path_save = tmp / 'monitor.duckdb'
-        path_save.mkdir(exist_ok=True)
-        monitor = FORCEMonitor(config=PATH_SETTINGS, replace=replace)
-        monitor.initDB()
+
+        monitor = FORCEMonitor.loadDB(self.IMMUTABLE_MONITOR_SRC)
         monitor._update_ard_tiles()
 
 

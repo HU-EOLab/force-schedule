@@ -1,6 +1,7 @@
 """
 General python utils to operate on the FORCE datacube
 """
+import inspect
 import os
 import re
 import secrets
@@ -52,7 +53,8 @@ def find_git_root(path: str | Path) -> Path:
 
 class FORCEMonitorTestCase(TestCase):
 
-    def createTestOutputDirectory(self,
+    @classmethod
+    def createTestOutputDirectory(cls,
                                   root: Union[Path, str] = 'test-outputs',
                                   subdir: Optional[Union[str, Path]] = None,
                                   cleanup: bool = False,
@@ -77,14 +79,24 @@ class FORCEMonitorTestCase(TestCase):
         DIR_REPO = find_git_root(__file__)
 
         folders = []
-        if hasattr(self, '__class__'):
-            folders.append(self.__class__.__module__)
-            folders.append(self.__class__.__name__)
-        else:
-            folders.append(self.__name__)
+        if isinstance(cls, type):
+            folders.append(cls.__module__)
+            folders.append(cls.__name__)
 
-        if hasattr(self, '_testMethodName'):
-            folders.append(self._testMethodName)
+        else:
+            if hasattr(cls, '__class__'):
+                folders.append(cls.__class__.__module__)
+                folders.append(cls.__class__.__name__)
+            else:
+                folders.append(cls.__name__)
+
+        if hasattr(cls, '_testMethodName'):
+            folders.append(cls._testMethodName)
+        else:
+            # add caller name
+            frame_info = inspect.currentframe().f_back
+            caller_name = frame_info.f_code.co_name
+            folders.append(caller_name)
 
         if subdir:
             subdir = Path(subdir)

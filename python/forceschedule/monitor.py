@@ -21,20 +21,28 @@ class FORCEMonitor(object):
         self,
         config: Union[None, FORCEConfig, str, Path] = None,
         replace: Optional[Dict[str, str]] = None,
+        connection=None
     ):
 
         if replace is None:
             replace = dict()
         self.replace = replace
 
-        self.con = duckdb.connect(database=':memory:')
         self.config: Optional[FORCEConfig] = None
-        if isinstance(config, (str, Path)):
-            self.initDB()
-            self.load_config(config)
-        elif isinstance(config, FORCEConfig):
-            self.initDB()
-            self.config = config
+
+        if connection:
+            self.con = connection
+            # load config from database
+            self.load_config_from_db()
+        else:
+            self.con = duckdb.connect(database=':memory:')
+
+            if isinstance(config, (str, Path)):
+                self.initDB()
+                self.load_config(config)
+            elif isinstance(config, FORCEConfig):
+                self.initDB()
+                self.config = config
 
     def initDB(self):
         """
@@ -150,9 +158,11 @@ class FORCEMonitor(object):
     def _update_ard_tiles(
         self,
         n_workers: int = 2,
-        patterns: List[str] = ["*.tif", "*.tiff"]
+        min_date: Optional[datetime.datetime] = None,
     ):
-
+        """
+        Loads the metadata of ARD files
+        """
         tiles = list(find_tile_folders(self.config.DIR_ARD_CUBE))
 
         data = []
@@ -170,7 +180,11 @@ class FORCEMonitor(object):
                     stat = p.stat()
                     m_time = datetime.datetime.fromtimestamp(stat.st_mtime)
 
-                    info = {'tile': tile
+                    if min_date and m_time < min_date:
+                        continue
+
+                    info = {
+                        'tile': tile
                         , 'date': datetime.date.fromisoformat(date)
                         , 'sensor': sensor
                         , 'product': product
@@ -178,7 +192,7 @@ class FORCEMonitor(object):
                         , 'path': str(p)
                         , 'm_time': m_time
                         , 'st_size': stat.st_size
-                            }
+                    }
                     file_infos.append(info)
 
         pass
@@ -235,6 +249,7 @@ class FORCEMonitor(object):
         self,
         min_time: Union[str, datetime.datetime, None] = None,
         max_time: Union[str, datetime.datetime, None] = None,
+        tiles: bool = False,
     ):
         """
         Updates the database with log files
@@ -256,7 +271,8 @@ class FORCEMonitor(object):
         self._update_ard_log(m_time_min=min_time, m_time_max=max_time)
 
         # update the ARD tile table
-        self._update_ard_tiles()
+        if tiles:
+            self._update_ard_tiles()
 
     def logfile_content(
         self,
@@ -280,22 +296,30 @@ class FORCEMonitor(object):
             yield data
 
     @staticmethod
-    def loadDB(path):
+    def loadDB(path, read_only: bool = False, replace: Optional[Dict[str, str]] = None):
         path = Path(path)
-        if not path.is_dir():
-            raise NotADirectoryError(f"The path {path} is not a directory")
-
-        monitor = FORCEMonitor()
-        con = monitor.con
-        con.execute(f"IMPORT DATABASE '{path}';")
-        print(con.execute("SHOW TABLES;").fetchall())
-        monitor.load_config_from_db()
+        if path.is_dir():
+            monitor = FORCEMonitor()
+            con = monitor.con
+            con.execute(f"IMPORT DATABASE '{path}';")
+            print(con.execute("SHOW TABLES;").fetchall())
+            monitor.load_config_from_db()
+        else:
+            con = duckdb.connect(path, read_only=True)
+            monitor = FORCEMonitor(connection=con, replace=replace)
         return monitor
 
     def saveDB(self, path):
         path = Path(path)
-
-        self.con.execute(f"EXPORT DATABASE '{path}';")
+        if path.is_dir():
+            self.con.execute(f"EXPORT DATABASE '{path}';")
+        else:
+            query = f"""
+            ATTACH '{path}' AS file_db;
+            COPY FROM DATABASE memory TO file_db;
+            DETACH file_db;
+            """
+            self.con.execute(query)
 
     def closeDB(self):
         self.con.close()
