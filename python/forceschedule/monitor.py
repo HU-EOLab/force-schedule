@@ -14,6 +14,7 @@ from forceschedule.utils import FORCEConfig, find_tile_folders, rx_level2_produc
 class FORCEMonitor(object):
     TABLE_ARD_LOG = 'ard_log'  # collects ARD log files
     TABLE_CONFIG = 'config'
+    TABLE_ARD_TILE = 'ard_tiles'
 
     C_DIR_ARD_LOG = 'DIR_ARD_LOG'
 
@@ -68,6 +69,22 @@ class FORCEMonitor(object):
             "failed BOOLEAN,"
             "m_time TIMESTAMP,"
             "path VARCHAR UNIQUE,"
+            ");"
+        )
+
+        # table for ARD tile file information. Potentially very large
+        c.execute(
+            f"CREATE TABLE IF NOT EXISTS {self.TABLE_ARD_TILE} ("
+            "tile VARCHAR,"
+            "date DATE,"
+            "sensor VARCHAR,"
+            "product VARCHAR,"
+            "name VARCHAR,"
+            "size BIGINT,"
+            "c_time TIMESTAMP,"
+            "m_time TIMESTAMP,"
+            "path VARCHAR UNIQUE,"
+            "PRIMARY KEY (tile, date, sensor, product),"
             ");"
         )
 

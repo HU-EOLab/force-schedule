@@ -62,7 +62,7 @@ class MyTestCase(FORCEMonitorTestCase):
 
         for r in monitor.con.execute(query).fetchmany(10):
             p = Path(r[0])
-
+            self.assertTrue(p.is_file())
             with open(p, 'r') as f:
                 content = f.read()
                 print(content)
