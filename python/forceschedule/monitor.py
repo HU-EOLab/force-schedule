@@ -1,14 +1,18 @@
 import datetime
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import chain
 from pathlib import Path
-from typing import Union, Optional, Dict, Any, Generator, List
+from typing import Union, Optional, Dict, Any, Generator, List, Tuple
 
 import duckdb
 import pandas as pd
 from tqdm import tqdm
 
-from forceschedule.utils import FORCEConfig, find_tile_folders, rx_level2_product
+from forceschedule.utils import FORCEConfig, find_tile_folders, rx_level2_product, to_date, to_datetime, DATETIME, DATE
+
+DATETIME_RANGE = Tuple[Optional[DATETIME], Optional[DATETIME]]
+DATE_RANGE = Tuple[Optional[DATE], Optional[DATE]]
 
 
 class FORCEMonitor(object):
@@ -17,6 +21,7 @@ class FORCEMonitor(object):
     TABLE_ARD_TILE = 'ard_tiles'
 
     C_DIR_ARD_LOG = 'DIR_ARD_LOG'
+    C_DIR_ARD_CUBE = 'DIR_ARD_CUBE'
 
     def __init__(
         self,
@@ -170,49 +175,152 @@ class FORCEMonitor(object):
             f'Files created between: {min_date} and {max_date}',
         ]
 
+        n_tile_ids = f"SELECT COUNT(tile) FROM {self.TABLE_ARD_TILE};"
+        dates_per_sensor = ''
+
+        query = f"""
+                SELECT 
+                  COUNT(DISTINCT "tile") as tiles,
+                  COUNT(*) as count,
+                  MIN("date") as obs_min, MAX("date") as obs_max,
+                  "sensor",
+                  "product",
+                  SUM("size") / 1024^3 as size_gb,
+                  MIN(DATE("c_time")) as c_min ,MAX(DATE("c_time")) as c_max
+                  FROM {self.TABLE_ARD_TILE}
+                  WHERE "product" = 'BOA' 
+                  GROUP BY "product", "sensor"
+                """
+        info += [f'ARD Cube: {self._config_value(self.C_DIR_ARD_CUBE)}']
+        results: pd.DataFrame = self.con.execute(query).df()
+        s = ""
+        with pd.option_context(
+            'display.max_rows', None,
+            'display.max_columns', None,
+            'display.width', None
+        ):
+            info += ['\n' + str(results)]
         return '\n'.join(info)
 
-    def _update_ard_tiles(
-        self,
-        n_workers: int = 2,
-        min_date: Optional[datetime.datetime] = None,
-    ):
+    @staticmethod
+    def _scan_ard_tile(
+        tiles: List[Path],
+        obs_date: DATE_RANGE = (None, None),
+        mod_date: DATE_RANGE = (None, None),
+    ) -> pd.DataFrame:
         """
-        Loads the metadata of ARD files
+        Scan a single ARD tile folder and return the metadata of its files.
+
+        This performs only filesystem I/O and no database access, so it is
+        safe to run in a worker thread.
         """
-        tiles = list(find_tile_folders(self.config.DIR_ARD_CUBE))
 
-        data = []
-        for tile in tqdm(tiles, desc='Updating ARD tiles'):
+        obs_date_min, obs_date_max = to_date(obs_date[0]), to_date(obs_date[1])
+        mod_date_min, mod_date_max = to_datetime(mod_date[0]), to_datetime(mod_date[1])
 
-            files = [e for e in os.scandir(tile) if e.is_file()]
-            file_infos = []
-            for f in files:
+        payload = []
+
+        for tile in tiles:
+            tile_id = tile.name
+            for f in [e for e in os.scandir(tile) if e.is_file()]:
                 if match := rx_level2_product.match(f.name):
-                    date = match.group('date')
+                    obs_date_ = datetime.datetime.fromisoformat(match.group('date'))
+
+                    if obs_date_min and obs_date_min > obs_date_:
+                        continue
+                    if obs_date_max and obs_date_max < obs_date_:
+                        continue
+
                     sensor = match.group('sensor')
                     product = match.group('product')
                     extension = match.group('ext')
-                    p = Path(f)
-                    stat = p.stat()
+                    # p = Path(f)
+                    stat = f.stat()
+                    c_time = datetime.datetime.fromtimestamp(stat.st_ctime)
                     m_time = datetime.datetime.fromtimestamp(stat.st_mtime)
 
-                    if min_date and m_time < min_date:
+                    if mod_date_min and m_time < mod_date_min:
+                        continue
+                    if mod_date_max and m_time > mod_date_max:
                         continue
 
                     info = {
-                        'tile': tile
-                        , 'date': datetime.date.fromisoformat(date)
+                        'tile': tile_id
+                        , 'date': obs_date_
                         , 'sensor': sensor
                         , 'product': product
-                        , 'extension': extension
-                        , 'path': str(p)
+                        , 'name': f.name
+                        , 'size': stat.st_size
+                        , 'c_time': c_time
                         , 'm_time': m_time
-                        , 'st_size': stat.st_size
+                        , 'path': str(f.path)
                     }
-                    file_infos.append(info)
+                    payload.append(info)
+        if len(payload) == 0:
+            return pd.DataFrame()
+        else:
+            return pd.DataFrame(payload)
 
-        pass
+    def _update_ard_tiles(
+        self,
+        n_workers: int = 8,
+        obs_date: DATE_RANGE = (None, None),
+        mod_date: DATE_RANGE = (None, None),
+        tile_ids: Optional[List[str]] = None,
+        batch_size: int = 10,
+    ):
+        """
+        Loads the metadata of ARD files.
+
+        The tile folders are scanned in parallel using ``n_workers`` threads,
+        while the resulting rows are inserted into the database on the calling
+        thread (the DuckDB connection is not shared between threads).
+        """
+        tiles = list(find_tile_folders(self.config.DIR_ARD_CUBE))
+
+        if tile_ids:
+            tiles = [t for t in tiles if t.name in tile_ids]
+
+        tiles_batches = [tiles[i: i + batch_size] for i in range(0, len(tiles), batch_size)]
+
+        def insert_payload(df_staging: pd.DataFrame):
+            if len(df_staging) == 0:
+                return
+
+            df_name = 'df_tiles_staging'
+            self.con.register(df_name, df_staging)
+            # Bulk upsert: the table has two unique constraints
+            # (PRIMARY KEY (tile, date, sensor, product) and UNIQUE path),
+            # so ON CONFLICT / INSERT OR REPLACE cannot infer a single target.
+            # Delete any rows colliding on either constraint, then insert.
+            self.con.execute(
+                # f"DELETE FROM {self.TABLE_ARD_TILE} t USING {df_name} s "
+                # "WHERE (t.tile = s.tile AND t.date = s.date "
+                # "       AND t.sensor = s.sensor AND t.product = s.product) "
+                # "   OR t.path = s.path"
+                f"DELETE FROM {self.TABLE_ARD_TILE} "
+                "WHERE (tile, date, sensor, product) IN "
+                f"(SELECT tile, date, sensor, product FROM {df_name});"
+                " "
+                f"INSERT INTO {self.TABLE_ARD_TILE} ("
+                "tile, date, sensor, product, name,"
+                "size, c_time, m_time, path"
+                f") FROM {df_name}")
+            self.con.unregister(df_name)
+
+        with ThreadPoolExecutor(max_workers=max(1, n_workers)) as executor:
+            futures = {
+                executor.submit(
+                    self._scan_ard_tile, batch, obs_date, mod_date
+                ): batch
+                for batch in tiles_batches
+            }
+            for future in tqdm(
+                as_completed(futures),
+                total=len(futures),
+                desc='Updating ARD tiles',
+            ):
+                insert_payload(future.result())
 
     def _update_ard_log(
         self,
@@ -313,7 +421,11 @@ class FORCEMonitor(object):
             yield data
 
     @staticmethod
-    def loadDB(path, read_only: bool = False, replace: Optional[Dict[str, str]] = None):
+    def loadDB(
+        path: Union[Path, str],
+        read_only: bool = False,
+        replace: Optional[Dict[str, str]] = None,
+    ):
         path = Path(path)
         if path.is_dir():
             monitor = FORCEMonitor()
@@ -322,8 +434,9 @@ class FORCEMonitor(object):
             print(con.execute("SHOW TABLES;").fetchall())
             monitor.load_config_from_db()
         else:
-            con = duckdb.connect(path, read_only=True)
+            con = duckdb.connect(path, read_only=read_only)
             monitor = FORCEMonitor(connection=con, replace=replace)
+            monitor.load_config_from_db()
         return monitor
 
     def saveDB(self, path):
@@ -337,6 +450,43 @@ class FORCEMonitor(object):
             DETACH file_db;
             """
             self.con.execute(query)
+
+    def clone(self) -> "FORCEMonitor":
+        """
+        Create a clone of this monitor backed by a new, independent in-memory
+        DuckDB that contains a copy of all tables and data from this monitor's
+        connection.
+        """
+        clone = FORCEMonitor()
+        clone.replace = dict(self.replace)
+
+        dst = clone.con
+        dst.execute("INSTALL spatial;")
+        dst.execute("LOAD spatial;")
+
+        # recreate every table (schema + constraints) and copy its data
+        tables = self.con.execute(
+            "SELECT table_name, sql FROM duckdb_tables() ORDER BY table_name"
+        ).fetchall()
+
+        table_names = set()
+        for table_name, create_sql in tables:
+            table_names.add(table_name)
+            # recreate the table with its original schema and constraints
+            dst.execute(create_sql)
+            # copy the data via a staging DataFrame
+            df = self.con.execute(f'SELECT * FROM "{table_name}"').fetch_df()
+            dst.register("df_clone", df)
+            dst.execute(f'INSERT INTO "{table_name}" SELECT * FROM df_clone')
+            dst.unregister("df_clone")
+
+        # load the config from the cloned data, if available
+        if self.TABLE_CONFIG in table_names:
+            clone.load_config_from_db()
+        else:
+            clone.config = self.config
+
+        return clone
 
     def closeDB(self):
         self.con.close()

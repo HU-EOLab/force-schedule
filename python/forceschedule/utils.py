@@ -1,6 +1,7 @@
 """
 General python utils to operate on the FORCE datacube
 """
+import datetime
 import inspect
 import os
 import re
@@ -19,6 +20,39 @@ rx_level2_product = re.compile(
     r'(?P<date>\d{8})_LEVEL2_(?P<sensor>[^_. ]+)'
     r'_(?P<product>[^_. ]+)\.(?P<ext>tif|bsq|bil|bip|cog)$'
 )
+
+DATE = Union[str, datetime.datetime, datetime.date]
+DATETIME = Union[str, datetime.datetime, datetime.date]
+
+
+def to_datetime(
+    input: Optional[DATETIME]
+) -> Optional[datetime.datetime]:
+    if input is None:
+        return None
+    elif isinstance(input, str):
+        return datetime.datetime.fromisoformat(input)
+    elif isinstance(input, datetime.datetime):
+        return datetime.datetime(input.date())
+    elif isinstance(input, datetime.datetime):
+        return input
+    else:
+        raise TypeError(f"Invalid date type: {type(input)}")
+
+
+def to_date(
+    input: Optional[DATE]
+) -> Optional[datetime.date]:
+    if input is None:
+        return None
+    elif isinstance(input, str):
+        return datetime.datetime.fromisoformat(input).date()
+    elif isinstance(input, datetime.datetime):
+        return input.date()
+    elif isinstance(input, datetime.date):
+        return input
+    else:
+        raise TypeError(f"Invalid date type: {type(input)}")
 
 
 def find_tile_folders(path: Union[Path, str]) -> Generator[Path, Any, None]:

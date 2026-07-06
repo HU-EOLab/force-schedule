@@ -33,6 +33,8 @@ class MyTestCase(FORCEMonitorTestCase):
             monitor.initDB()
             monitor.load_config(PATH_SETTINGS)
             monitor.update_db()
+            tile_ids = ['X0061_Y0059', 'X0062_Y0058']
+            monitor._update_ard_tiles(tile_ids=tile_ids)
             print(monitor.status())
             monitor.saveDB(path_save)
 
@@ -40,6 +42,13 @@ class MyTestCase(FORCEMonitorTestCase):
         monitor = FORCEMonitor(replace=REPLACE, connection=con)
         cls.IMMUTABLE_MONITOR = monitor
         cls.IMMUTABLE_MONITOR_SRC = path_save
+
+    def test_clone(self):
+
+        m2 = self.IMMUTABLE_MONITOR.clone()
+        m2.con.execute("CREATE TABLE test (a int);")
+        self.assertIsInstance(m2.status(), str)
+        s = ""
 
     def test_immutable_monitor(self):
         # create immutable monitor
@@ -133,8 +142,32 @@ class MyTestCase(FORCEMonitorTestCase):
 
     def test_monitor_load_tiles(self):
 
-        monitor = FORCEMonitor.loadDB(self.IMMUTABLE_MONITOR_SRC)
-        monitor._update_ard_tiles()
+        monitor = self.IMMUTABLE_MONITOR.clone()
+        tile_ids = ['X0061_Y0059', 'X0062_Y0058']
+        monitor._update_ard_tiles(tile_ids=tile_ids)
+        print(monitor.status())
+        monitor._update_ard_tiles(tile_ids=tile_ids)
+        print(monitor.status())
+
+    def test_monitor_load_all(self):
+        tmp = self.createTestOutputDirectory()
+        path_save = tmp / 'monitorAll2.duckdb'
+        if not path_save.is_file():
+            path_save.parent.mkdir(exist_ok=True)
+            monitor = FORCEMonitor(replace=REPLACE, )
+            monitor.initDB()
+            monitor.load_config(PATH_SETTINGS)
+            monitor.update_db(tiles=True)
+            # monitor._update_ard_tiles(n_workers=10)
+            # monitor._update_ard_tiles(n_workers=10,
+            #                           mod_date=('2025-01-01', None))
+            # monitor._update_ard_tiles(n_workers=10,
+            #                           mod_date=['2024-01-01', '2025-01-01'])
+            monitor.saveDB(path_save)
+        else:
+            monitor = FORCEMonitor.loadDB(path_save, replace=REPLACE, )
+
+        print(monitor.status())
 
 
 if __name__ == '__main__':
