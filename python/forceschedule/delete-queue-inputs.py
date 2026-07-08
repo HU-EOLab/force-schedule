@@ -62,7 +62,7 @@ def read_queue(path_queue: Path) -> Dict[str, List[Path]]:
 
         folder_path, status = parts
         status_files = results.get(status, [])
-        status_files.append(folder_path)
+        status_files.append(Path(folder_path))
         results[status] = status_files
     return results
 
@@ -91,6 +91,9 @@ def delete_inputs(
     for status, files in entries.items():
         if status in to_delete:
             for path in files:
+                if not path.exists():
+                    print(f"Does not exists: {path} ({status})")
+                    continue
                 if dry_run:
                     print(f"Would delete {path} ({status})")
                 else:
