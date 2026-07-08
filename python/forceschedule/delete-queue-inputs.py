@@ -5,9 +5,7 @@
 import argparse
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
-
-from tqdm.auto import tqdm
+from typing import Dict, List
 
 
 def parse_args() -> argparse.Namespace:
@@ -52,7 +50,7 @@ def read_queue(path_queue: Path) -> Dict[str, List[Path]]:
     if not path_queue.exists():
         raise FileNotFoundError(f"Queue file not found: {path_queue}")
 
-    RESULTS = {c: [] for c in ["DONE", "FAIL", "QUEUED"]}
+    results = {c: [] for c in ["DONE", "FAIL", "QUEUED"]}
 
     for i, line in enumerate(path_queue.read_text().splitlines()):
         line = line.strip()
@@ -63,10 +61,10 @@ def read_queue(path_queue: Path) -> Dict[str, List[Path]]:
             raise Exception(f"Malformed line in {path_queue}: {i + 1}: {line}")
 
         folder_path, status = parts
-        status_files = RESULTS.get(status, [])
+        status_files = results.get(status, [])
         status_files.append(folder_path)
-        RESULTS[status] = status_files
-    return RESULTS
+        results[status] = status_files
+    return results
 
 
 def delete_inputs(
