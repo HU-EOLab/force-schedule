@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 import argparse
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional, Union, List
-
-from tqdm import tqdm
+from typing import List, Optional, Union
 
 
 def is_failed(file_path: Path) -> bool:
@@ -14,7 +13,7 @@ def is_failed(file_path: Path) -> bool:
     decoding the whole file to text.
     """
     content = file_path.read_text().lower()
-    keywords = ['success', 'skip', 'coreg failed', 'coregistration failed']
+    keywords = ["success", "skip", "coreg failed", "coregistration failed"]
     for k in keywords:
         if k in content:
             return False
@@ -36,7 +35,7 @@ def rename_logs_process(file_path: Path, dry_run: bool) -> Optional[Path]:
         else:
             return None
     except Exception as e:
-        tqdm.write(f"Could not process file {file_path.name}: {e}")
+        print(f"Could not process file {file_path.name}: {e}", file=sys.stderr)
         return None
 
 
@@ -69,17 +68,17 @@ def rename_logs(
         requested_logs = []
 
         for line in queue_file.read_text().splitlines():
-            requested_logs.append(Path(line.split()[0]).name + '.log')
+            requested_logs.append(Path(line.split()[0]).name + ".log")
         flog = [p for p in flog if p.name in requested_logs]
         if len(flog) == 0:
             print(f"No *.log files found related to inputs listed in {queue_file}")
             return []
 
-    desc = "Checking logs (dry-run)" if dry_run else "Renaming failed logs"
+    # desc = "Checking logs (dry-run)" if dry_run else "Renaming failed logs"
     failed_logs = []
     with ThreadPoolExecutor(max_workers=max(1, n_workers)) as executor:
         results = executor.map(lambda p: rename_logs_process(p, dry_run), flog)
-        for new_path in tqdm(results, total=len(flog), desc=desc):
+        for new_path in results:
             if new_path is not None:
                 failed_logs.append(new_path)
 
@@ -97,7 +96,8 @@ if __name__ == "__main__":
         help="Path to the directory containing the .log files",
     )
     parser.add_argument(
-        "-j", "--workers",
+        "-j",
+        "--workers",
         type=int,
         default=8,
         help="Number of worker threads used to read log files (default: 8)",
