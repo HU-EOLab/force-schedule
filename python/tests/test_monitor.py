@@ -3,6 +3,7 @@ from pathlib import Path
 
 import duckdb
 from _duckdb import InvalidInputException
+from osgeo import gdal
 from tqdm.auto import tqdm
 
 from forceschedule.monitor import FORCEMonitor
@@ -12,6 +13,7 @@ PATH_SETTINGS = "~/Mount/Aldhani/dc/force-schedule/config/config.txt"
 PATH_SETTINGS = Path(PATH_SETTINGS).expanduser()
 
 REPLACE = {'/data/Aldhani': '/home/jakimowb/Mount/Aldhani'}
+gdal.UseExceptions()
 
 
 def test_output_dir() -> Path:

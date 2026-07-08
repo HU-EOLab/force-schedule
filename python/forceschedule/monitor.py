@@ -7,6 +7,7 @@ from typing import Union, Optional, Dict, Any, Generator, List, Tuple
 
 import duckdb
 import pandas as pd
+from osgeo import gdal
 from tqdm import tqdm
 
 from forceschedule.utils import FORCEConfig, find_tile_folders, rx_level2_product, to_date, to_datetime, DATETIME, DATE
@@ -88,6 +89,7 @@ class FORCEMonitor(object):
             "size BIGINT,"
             "c_time TIMESTAMP,"
             "m_time TIMESTAMP,"
+            "force VARCHAR, "
             "path VARCHAR UNIQUE,"
             "PRIMARY KEY (tile, date, sensor, product),"
             ");"
@@ -234,6 +236,11 @@ class FORCEMonitor(object):
                     sensor = match.group('sensor')
                     product = match.group('product')
                     extension = match.group('ext')
+
+                    ds = gdal.Open(f.path)
+                    MD = ds.GetMetadata_Dict('FORCE')
+                    force_version = MD['FORCE_version']
+                    del ds
                     # p = Path(f)
                     stat = f.stat()
                     c_time = datetime.datetime.fromtimestamp(stat.st_ctime)
@@ -253,6 +260,7 @@ class FORCEMonitor(object):
                         , 'size': stat.st_size
                         , 'c_time': c_time
                         , 'm_time': m_time
+                        , 'force': force_version
                         , 'path': str(f.path)
                     }
                     payload.append(info)
@@ -304,7 +312,7 @@ class FORCEMonitor(object):
                 " "
                 f"INSERT INTO {self.TABLE_ARD_TILE} ("
                 "tile, date, sensor, product, name,"
-                "size, c_time, m_time, path"
+                "size, c_time, m_time, force, path"
                 f") FROM {df_name}")
             self.con.unregister(df_name)
 

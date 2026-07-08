@@ -2,76 +2,89 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from tqdm import tqdm
 
 
-def classify(file_path: Path) -> str:
+def is_failed(file_path: Path) -> bool:
     """Read a log file and return its status.
 
     Reads bytes and searches for markers directly to avoid the cost of
     decoding the whole file to text.
     """
-    content = file_path.read_bytes()
-    if b"Success" in content:
-        return "Success"
-    elif b"Skip" in content:
-        return "Too cloudy"
-    elif b"coreg failed" in content or b"Coregistration failed" in content:
-        return "Coregistration failed"
-    else:
-        return "Error"
+    content = file_path.read_text().lower()
+    keywords = ['success', 'skip', 'coreg failed', 'coregistration failed']
+    for k in keywords:
+        if k in content:
+            return False
+    return True
 
 
-def _process(file_path: Path, dry_run: bool) -> Optional[Path]:
+def rename_logs_process(file_path: Path, dry_run: bool) -> Optional[Path]:
     """Classify a single log file and rename it to .fail if it failed.
 
     Returns the renamed path on failure, otherwise None. Runs in a worker
     thread (only filesystem I/O, no shared state).
     """
     try:
-        if classify(file_path) != "Error":
+        if is_failed(file_path):
+            new_path = file_path.with_suffix(".fail")
+            if not dry_run:
+                file_path.rename(new_path)
+            return new_path
+        else:
             return None
-        new_path = file_path.with_suffix(".fail")
-        if not dry_run:
-            file_path.rename(new_path)
-        return new_path
     except Exception as e:
         tqdm.write(f"Could not process file {file_path.name}: {e}")
         return None
 
 
 def rename_logs(
-    dlog: Union[str, Path],
+    dir_log: Union[str, Path],
+    queue_file: Optional[Union[str, Path]] = None,
     n_workers: int = 8,
     dry_run: bool = False,
-) -> None:
-    """Scan the directory for .log files, check their contents,
-
+) -> List[Path]:
+    """Scan the directory for .log files, check their content,
     and rename failed runs to .fail. Files are read in parallel using
     ``n_workers`` threads.
     """
-    dlog_path = Path(dlog)
+    dir_log = Path(dir_log)
+    if not dir_log.is_dir():
+        raise NotADirectoryError(f"{dir_log} is not a valid directory.")
 
-    if not dlog_path.is_dir():
-        print(f"Error: {dlog_path} is not a valid directory.")
-        return
-
-    print(f"LOG DIR={dlog_path.resolve()}")
+    print(f"LOG DIR={dir_log.resolve()}")
 
     # Scan for .log files
-    flog = list(dlog_path.glob("*.log"))
-    nfail = 0
+    flog = list(dir_log.glob("*.log"))
+
+    if queue_file is not None:
+        queue_file = Path(queue_file)
+        if not queue_file.is_file():
+            raise FileNotFoundError(f"{queue_file} is not a valid file.")
+
+        print(f"QUEUE FILE={queue_file.resolve()}")
+
+        requested_logs = []
+
+        for line in queue_file.read_text().splitlines():
+            requested_logs.append(Path(line.split()[0]).name + '.log')
+        flog = [p for p in flog if p.name in requested_logs]
+        if len(flog) == 0:
+            print(f"No *.log files found related to inputs listed in {queue_file}")
+            return []
 
     desc = "Checking logs (dry-run)" if dry_run else "Renaming failed logs"
+    failed_logs = []
     with ThreadPoolExecutor(max_workers=max(1, n_workers)) as executor:
-        results = executor.map(lambda p: _process(p, dry_run), flog)
+        results = executor.map(lambda p: rename_logs_process(p, dry_run), flog)
         for new_path in tqdm(results, total=len(flog), desc=desc):
             if new_path is not None:
-                nfail += 1
+                failed_logs.append(new_path)
 
-    print(f"Failed: {nfail}")
+    print(f"Failed: {len(failed_logs)}")
+    return failed_logs
 
 
 if __name__ == "__main__":
