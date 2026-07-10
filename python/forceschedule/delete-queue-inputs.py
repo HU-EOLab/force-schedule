@@ -88,6 +88,7 @@ def delete_inputs(
 
     print("\n".join(info))
     does_not_exists = []
+    deleted = []
     for status, files in entries.items():
         if status in to_delete:
             for path in files:
@@ -102,9 +103,10 @@ def delete_inputs(
                         shutil.rmtree(path)
                     elif path.is_file():
                         path.unlink()
+                    deleted.append(path)
 
-    if len(does_not_exists) > 0:
-        print(f"Found {len(does_not_exists)} none-existing files / folders")
+    print(f"Found {len(does_not_exists)} none-existing files / folders.")
+    print(f"Deleted {len(deleted)} files / folders.")
 
 
 def main() -> None:
