@@ -105,8 +105,8 @@ def delete_inputs(
                         path.unlink()
                     deleted.append(path)
 
-    print(f"Found {len(does_not_exists)} none-existing files / folders.")
-    print(f"Deleted {len(deleted)} files / folders.")
+    print(f"Deleted: {len(deleted)} files / folders.")
+    print(f"Did not exist: {len(does_not_exists)}")
 
 
 def main() -> None:
