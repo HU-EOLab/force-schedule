@@ -1,33 +1,45 @@
 """
 General python utils to operate on the FORCE datacube
 """
+
 import datetime
 import inspect
+import json
 import os
 import re
 import secrets
 import shutil
 import warnings
 from pathlib import Path
-from typing import Dict, Optional, Union, List, Any, Generator
+from typing import Any, Dict, Generator, List, Optional, Union
 from unittest import TestCase
 
 # regex to match tile-ids
-rx_tile_id = re.compile(r'^X\d{4}_Y\d{4}$')
-rx_tile = re.compile(r'.*(?P<tileid>X\d{4}_Y\d{4}).*')
+
+rx_tile_id = re.compile(r"^X\d{4}_Y\d{4}$")
+rx_tile = re.compile(r".*(?P<tileid>X\d{4}_Y\d{4}).*")
 
 rx_level2_product = re.compile(
-    r'(?P<date>\d{8})_LEVEL2_(?P<sensor>[^_. ]+)'
-    r'_(?P<product>[^_. ]+)\.(?P<ext>tif|bsq|bil|bip|cog)$'
+    r"(?P<date>\d{8})_LEVEL2_(?P<sensor>[^_. ]+)"
+    r"_(?P<product>[^_. ]+)\.(?P<ext>tif|bsq|bil|bip|cog)$"
 )
 
 DATE = Union[str, datetime.datetime, datetime.date]
 DATETIME = Union[str, datetime.datetime, datetime.date]
 
 
-def to_datetime(
-    input: Optional[DATETIME]
-) -> Optional[datetime.datetime]:
+def to_tile_ids(input: str) -> List[str]:
+    if input is None:
+        return []
+    elif isinstance(input, str):
+        parts = re.split('[,"\n]', input)
+        tile_ids = [p for p in parts if rx_tile_id.match(p)]
+        return tile_ids
+    else:
+        raise TypeError(f"Invalid tile_ids type: {type(input)}")
+
+
+def to_datetime(input: Optional[DATETIME]) -> Optional[datetime.datetime]:
     if input is None:
         return None
     elif isinstance(input, str):
@@ -40,9 +52,7 @@ def to_datetime(
         raise TypeError(f"Invalid date type: {type(input)}")
 
 
-def to_date(
-    input: Optional[DATE]
-) -> Optional[datetime.date]:
+def to_date(input: Optional[DATE]) -> Optional[datetime.date]:
     if input is None:
         return None
     elif isinstance(input, str):
@@ -86,13 +96,14 @@ def find_git_root(path: str | Path) -> Path:
 
 
 class FORCEMonitorTestCase(TestCase):
-
     @classmethod
-    def createTestOutputDirectory(cls,
-                                  root: Union[Path, str] = 'test-outputs',
-                                  subdir: Optional[Union[str, Path]] = None,
-                                  cleanup: bool = False,
-                                  max_length: int = 200) -> Path:
+    def createTestOutputDirectory(
+        cls,
+        root: Union[Path, str] = "test-outputs",
+        subdir: Optional[Union[str, Path]] = None,
+        cleanup: bool = False,
+        max_length: int = 200,
+    ) -> Path:
         """
         Returns the path to a test output directory.
         Defaults to: <repo>/<root>/<test module>/<test class>/<test method>
@@ -118,13 +129,13 @@ class FORCEMonitorTestCase(TestCase):
             folders.append(cls.__name__)
 
         else:
-            if hasattr(cls, '__class__'):
+            if hasattr(cls, "__class__"):
                 folders.append(cls.__class__.__module__)
                 folders.append(cls.__class__.__name__)
             else:
                 folders.append(cls.__name__)
 
-        if hasattr(cls, '_testMethodName'):
+        if hasattr(cls, "_testMethodName"):
             folders.append(cls._testMethodName)
         else:
             # add caller name
@@ -140,9 +151,11 @@ class FORCEMonitorTestCase(TestCase):
 
         if len(p.as_posix()) > max_length:
             p2 = Path(DIR_REPO) / root / secrets.token_urlsafe(8).upper()
-            info = [f'Path exceeds max_length ({max_length}: {p}).',
-                    f'Use random name instead: {p2}']
-            warnings.warn('\n'.join(info), stacklevel=2)
+            info = [
+                f"Path exceeds max_length ({max_length}: {p}).",
+                f"Use random name instead: {p2}",
+            ]
+            warnings.warn("\n".join(info), stacklevel=2)
             p = p2
 
         if cleanup and p.exists() and p.is_dir():
@@ -159,12 +172,11 @@ class FORCEConfig(object):
     def __init__(
         self,
         path: Union[None, Path, str] = None,
-        replace: Optional[Dict[str, str]] = None
-
+        replace: Optional[Dict[str, str]] = None,
     ):
 
-        self.FORCE_IMAGE: str = ''
-        self.USER_GROUP: str = ''
+        self.FORCE_IMAGE: str = ""
+        self.USER_GROUP: str = ""
 
         self.DIR_CSD_META: Path = Path()
         self.DIR_CREDENTIALS: Path = Path()
@@ -188,26 +200,26 @@ class FORCEConfig(object):
         self.DIR_ARD_LOG: Path = Path()
         self.DIR_ARD_REPORT: Path = Path()
 
+        self.DB_MONITOR: Optional[str] = None
+
         if path is not None:
             self.loadFromPath(path, replace)
 
     def loadFromPath(
-        self,
-        path: Union[Path, str],
-        replace: Optional[Dict[str, str]] = None
+        self, path: Union[Path, str], replace: Optional[Dict[str, str]] = None
     ):
         path = Path(path)
         if not path.is_file():
             raise FileNotFoundError(f"Config file not found: {path}")
 
-        with open(path, 'r') as f:
-            data = [line.strip() for line in f.read().split('\n')]
-            data = [line.strip().split('=') for line in data if len(line) > 0]
+        with open(path, "r") as f:
+            data = [line.strip() for line in f.read().split("\n")]
+            data = [line.strip().split("=") for line in data if len(line) > 0]
             data = {kv[0].strip(): kv[1].strip() for kv in data}
 
         if isinstance(replace, dict):
             for k in list(data.keys()):
-                if re.search(r'^(DIR|FILE)_', k):
+                if re.search(r"^(DIR|FILE|DB)_", k):
                     v = data[k]
                     for k2, v2 in replace.items():
                         if v.startswith(k2):
@@ -218,8 +230,8 @@ class FORCEConfig(object):
                 raise KeyError(f"Key {key} not found in config file")
             return Path(data[key])
 
-        self.FORCE_IMAGE = data['FORCE_IMAGE']
-        self.USER_GROUP = data['USER_GROUP']
+        self.FORCE_IMAGE = data["FORCE_IMAGE"]
+        self.USER_GROUP = data["USER_GROUP"]
 
         self.DIR_CSD_META = get_path("DIR_CSD_META")
         self.DIR_CREDENTIALS = get_path("DIR_CREDENTIALS")
@@ -235,14 +247,15 @@ class FORCEConfig(object):
         self.FILE_SENTINEL2_AOI = get_path("FILE_SENTINEL2_AOI")
 
         self.FILE_ARD_SENTINEL2_PARAM = get_path("FILE_ARD_SENTINEL2_PARAM")
-        self.FILE_ARD_LANDSAT_OLI_PARAM = get_path(
-            "FILE_ARD_LANDSAT_OLI_PARAM")
+        self.FILE_ARD_LANDSAT_OLI_PARAM = get_path("FILE_ARD_LANDSAT_OLI_PARAM")
         self.FILE_ARD_LANDSAT_TM_PARAM = get_path("FILE_ARD_LANDSAT_TM_PARAM")
         self.FILE_BASE_PARAM = get_path("FILE_BASE_PARAM")
 
         self.DIR_ARD_CUBE = get_path("DIR_ARD_CUBE")
         self.DIR_ARD_LOG = get_path("DIR_ARD_LOG")
         self.DIR_ARD_REPORT = get_path("DIR_ARD_REPORT")
+
+        self.DB_MONITOR = data.get("DB_MONITOR")
 
         self._data = data
         self._replace = replace
@@ -251,15 +264,15 @@ class FORCEConfig(object):
         errors = []
 
         for k, v in self.__dict__.items():
-            if k.startswith('DIR') or k.startswith('FILE'):
+            if k.startswith("DIR") or k.startswith("FILE"):
                 if not isinstance(v, Path):
                     errors.append(f"{k} is not a Path object: {v}")
                     continue
-            if k.startswith('FILE') and 'QUEUE' not in k:
+            if k.startswith("FILE") and "QUEUE" not in k:
                 v: Path
                 if not v.is_file():
                     errors.append(f"Not a file: {k}={v}")
-            elif k.startswith('DIR'):
+            elif k.startswith("DIR"):
                 v: Path
                 if not v.is_dir():
                     errors.append(f"Not a dir: {k}={v}")
