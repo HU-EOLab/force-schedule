@@ -6,15 +6,24 @@ BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # make sure script exits if any process exits unsuccessfully
 set -e
 
+# get config file with support for --config=path syntax
+
+CONFIG="../config/config.txt"
+
+
 # parse config file
-DIR_SENTINEL2_IMAGES=$("$BIN"/read-config.sh "DIR_SENTINEL2_IMAGES")
-FILE_SENTINEL2_QUEUE=$("$BIN"/read-config.sh "FILE_SENTINEL2_QUEUE")
+DIR_SENTINEL2_IMAGES=$("$BIN"/read-config2.sh "DIR_SENTINEL2_IMAGES" "$CONFIG" )
+FILE_SENTINEL2_QUEUE=$("$BIN"/read-config2.sh "FILE_SENTINEL2_QUEUE" "$CONFIG" )
 
 # renamed queue
 DIR_QUEUE=$(dirname "$FILE_SENTINEL2_QUEUE")
 BASE_QUEUE=$(basename "$FILE_SENTINEL2_QUEUE")
 TIME=$(date +"%Y%m%d%H%M%S")
 FILE_MV_QUEUE="$DIR_QUEUE/.queue-$TIME-$BASE_QUEUE"
+
+
+# echo "QUEUE-IN: $FILE_SENTINEL2_QUEUE"
+# echo "QUEUE-MV: $FILE_MV_QUEUE"
 
 # is there a queue?
 if [ ! -w "$FILE_SENTINEL2_QUEUE" ]; then
@@ -30,14 +39,19 @@ fi
 
 
 # process L1C to ARD
-"$BIN"/ard-sentinel2.sh && \
-#
+"$BIN"/ard-sentinel2.sh # && \
+
 # move the queue
-mv "$FILE_SENTINEL2_QUEUE" "$FILE_MV_QUEUE" && \
+mv "$FILE_SENTINEL2_QUEUE" "$FILE_MV_QUEUE" # && \
+
 #
 # delete && remake L1C
-rm -rf "$DIR_SENTINEL2_IMAGES" && mkdir "$DIR_SENTINEL2_IMAGES" && \
+# rm -rf "$DIR_SENTINEL2_IMAGES" && mkdir "$DIR_SENTINEL2_IMAGES" && \
 #
+# remove INPUTS where queue is DONE, but keep FAIL
+echo "Delete DONE folder from $FILE_MV_QUEUE..."
+python3 "$BIN/../python/forceschedule/delete-queue-inputs.py" "$FILE_MV_QUEUE"
+
 # rename logfiles that are not OK from *.log to *.fail -> re-download
 "$BIN"/ard-rename-logs.sh
 

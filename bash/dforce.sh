@@ -10,33 +10,28 @@ echo "-----------------------------------------------------------"
 set -e
 
 
-# get config file
-if [ $# -ge 1 ]; then
-CONFIG=$1
-shift
-else
-  CONFIG="../config/config.txt"
-fi
-
-EXTRA_ARGS=("$@")
+CONFIG="../config/config.txt"
 
 IMAGE=$("$BIN"/read-config2.sh "FORCE_IMAGE" "$CONFIG")
+IMAGE="davidfrantz/force:3.9.02"
 USER_GROUP=$("$BIN"/read-config2.sh "USER_GROUP" "$CONFIG" "$(id -u):$(id -g)")
-USER_GROUP=$("$BIN"/get_uid_gid.sh "$USER_GROUP")
+USER_GROUP=$("$BIN"/get-uid-gid.sh "$USER_GROUP")
 DIR_CREDENTIALS=$("$BIN"/read-config2.sh "DIR_CREDENTIALS" "$CONFIG" "$HOME")
+EXTRA_ARGS=("$@")
 
-# echo "IMAGE: $IMAGE"
-# echo "USER_GROUP: $USER_GROUP"
-# echo "DIR_CREDENTIALS: $DIR_CREDENTIALS"
-# echo "EXTRA_ARGS: $EXTRA_ARGS"
+echo "CONFIG: $CONFIG"
+echo "IMAGE: $IMAGE"
+echo "EXTRA_ARGS: $EXTRA_ARGS"
 
 docker run \
 --rm \
 -it \
+--ulimit nofile=16384:16384 \
 -v "$DIR_CREDENTIALS:/app/credentials" \
 -v /data:/data \
 -v /mnt:/mnt \
 -v "$HOME:$HOME" \
+-v "$DIR_TEMP:$DIR_TEMP" \
 -w "$PWD" \
 -u "$USER_GROUP" \
 "$IMAGE" \

@@ -6,15 +6,10 @@ BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # make sure script exits if any process exits unsuccessfully
 set -e
 
-# get config file
-if [ $# -ge 1 ]; then
-CONFIG=$1
-shift
-else
-  CONFIG="../config/config.txt"
-fi
+# get config file with support for --config=path syntax
 
-EXTRA_ARGS=("$@")
+CONFIG="../config/config.txt"
+
 
 # parse config file
 IMAGE=$("$BIN"/read-config2.sh "FORCE_IMAGE" "$CONFIG" )
@@ -25,9 +20,9 @@ DIR_SENTINEL2_IMAGES=$("$BIN"/read-config2.sh "DIR_SENTINEL2_IMAGES" "$CONFIG" )
 FILE_SENTINEL2_QUEUE=$("$BIN"/read-config2.sh "FILE_SENTINEL2_QUEUE" "$CONFIG" )
 FILE_SENTINEL2_AOI=$("$BIN"/read-config2.sh "FILE_SENTINEL2_AOI" "$CONFIG" )
 USER_GROUP=$("$BIN"/read-config2.sh "USER_GROUP" "$CONFIG"  "$(id -u):$(id -g)")
-USER_GROUP=$("$BIN"/get_uid_gid.sh "$USER_GROUP")
+USER_GROUP=$("$BIN"/get-uid-gid.sh "$USER_GROUP")
 
-DATERANGE="20260101,20260105"
+DATERANGE="20251101,20990101"
 
 FN_AOI=$(basename "$FILE_SENTINEL2_AOI")
 set -e
@@ -65,7 +60,7 @@ echo "download S2 files"
 fi
 
 if true; then
-  #echo "unzip downloaded files"
+  echo "unzip downloaded files"
 
   ls $DIR_SENTINEL2_IMAGES/S2*.zip | parallel -j4 unzip -o -q -d $DIR_SENTINEL2_IMAGES {} || true
 
@@ -79,10 +74,11 @@ if true; then
   done
 
   echo "write $FILE_SENTINEL2_QUEUE"
-  echo "Add images to queue:"
-  ls -d $DIR_SENTINEL2_IMAGES/S2*.SAFE | tee "$FILE_SENTINEL2_QUEUE"
+  # echo "Add images to queue:"
+  # ls -d $DIR_SENTINEL2_IMAGES/S2*.SAFE | tee "$FILE_SENTINEL2_QUEUE"
+  ls -d $DIR_SENTINEL2_IMAGES/S2*.SAFE > "$FILE_SENTINEL2_QUEUE"
   sed -i 's/$/ QUEUED/' "$FILE_SENTINEL2_QUEUE"
   echo "download & extraction done"
 fi
-exit 0
 
+exit 0
