@@ -41,6 +41,7 @@ docker run \
   --rm \
   -e FORCE_CREDENTIALS=/app/credentials \
   -e BOTO_CONFIG=/app/credentials/.boto \
+  --ulimit nofile=65536:65536 \
   -v "$DIR_CREDENTIALS":/app/credentials \
   -v /data:/data \
   -v /mnt:/mnt \
