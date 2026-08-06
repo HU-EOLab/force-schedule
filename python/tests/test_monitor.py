@@ -1,9 +1,15 @@
+import os
 import unittest
 from pathlib import Path
 
-import duckdb
-from _duckdb import InvalidInputException
-from forceschedule.monitor import FORCEMonitor
+import psycopg
+from forceschedule.monitor import (
+    FORCEMonitor,
+    config_value,
+    create_monitor_tables,
+    update_ard_logfiles,
+    update_config,
+)
 from forceschedule.utils import FORCEMonitorTestCase
 from osgeo import gdal
 from tqdm.auto import tqdm
@@ -14,6 +20,17 @@ PATH_SETTINGS = Path(PATH_SETTINGS).expanduser()
 REPLACE = {"/data/Aldhani": "/home/jakimowb/Mount/Aldhani"}
 gdal.UseExceptions()
 
+if not PATH_SETTINGS.is_file():
+    raise FileNotFoundError(f"Settings file not found: {PATH_SETTINGS}")
+
+database_uri = f"""
+dbname={os.environ["DBNAME"]} 
+ user={os.environ["DBUSER"]} 
+ password={os.environ["DBPASSWORD"]} 
+ port={os.environ["DBPORT"]} 
+ host={os.environ["DBHOST"]} 
+"""
+
 
 def test_output_dir() -> Path:
     d = Path(__file__).parent / "outputs"
@@ -22,14 +39,53 @@ def test_output_dir() -> Path:
 
 
 class MyTestCase(FORCEMonitorTestCase):
-    def test_immutable_monitor(self):
-        # create immutable monitor
+    def test_connect_db(self):
 
-        self.assertIsInstance(self.IMMUTABLE_MONITOR, FORCEMonitor)
+        con = psycopg.connect(database_uri)
 
-        # try to add a table
-        with self.assertRaises(InvalidInputException):
-            self.IMMUTABLE_MONITOR.con.execute("CREATE TABLE test (a int);")
+        cursor = con.cursor()
+        cursor.execute("SELECT version();")
+        pg_info: str = cursor.fetchone()[0]
+        self.assertTrue(pg_info.startswith("PostgreSQL"))
+
+        # Test PostGIS extension
+        cursor.execute("SELECT PostGIS_Full_Version();")
+        postgis_info = cursor.fetchone()[0]
+        self.assertTrue(postgis_info.startswith("POSTGIS="))
+
+        cursor.close()
+        con.close()
+
+        pass
+
+    def test_create_schema(self):
+
+        con = psycopg.connect(database_uri)
+        create_monitor_tables(con)
+        con.close()
+        s = ""
+
+    def test_update_config(self):
+
+        con = psycopg.connect(database_uri)
+        update_config(con, PATH_SETTINGS)
+        con.close()
+
+    def test_read_confi(self):
+
+        con = psycopg.connect(database_uri)
+        r = config_value(con, "DIR_LANDSAT_IMAGES")
+        self.assertIsInstance(r, str)
+
+        r = config_value(con, "foobar")
+        self.assertTrue(r is None)
+        con.close()
+
+    def test_update_logfiles(self):
+
+        con = psycopg.connect(database_uri)
+        update_ard_logfiles(con, PATH_SETTINGS, replacements=REPLACE)
+        con.close()
 
     def test_monitor_readlogs(self):
 

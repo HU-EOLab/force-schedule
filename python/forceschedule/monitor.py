@@ -10,8 +10,9 @@ from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import duckdb
 import pandas as pd
-from _duckdb import DuckDBPyConnection
+import psycopg
 from osgeo import gdal
+from psycopg import Connection
 from tqdm import tqdm
 
 from forceschedule.utils import (
@@ -25,10 +26,195 @@ from forceschedule.utils import (
     to_tile_ids,
 )
 
-__version__ = "0.1"
+__version__ = "0.2"
 
 DATETIME_RANGE = Tuple[Optional[DATETIME], Optional[DATETIME]]
 DATE_RANGE = Tuple[Optional[DATE], Optional[DATE]]
+
+PATH = Union[str, Path]
+
+TABLE_ARD_LOG = "ard_log"
+TABLE_ARD_TILES = "ard_tiles"
+TABLE_CONFIG = "config"
+
+
+def create_monitor_tables(con):
+
+    c = con.cursor()
+
+    # table for datacube configuration
+    c.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {TABLE_CONFIG} (
+        key VARCHAR PRIMARY KEY,
+        value VARCHAR
+        );"""
+    )
+
+    # table for ARD log file information
+    c.execute(
+        f"CREATE TABLE IF NOT EXISTS {TABLE_ARD_LOG} ("
+        # "name VARCHAR PRIMARY KEY,"
+        "sceneid VARCHAR PRIMARY KEY,"
+        "failed BOOLEAN,"
+        "m_time TIMESTAMP,"
+        "path VARCHAR UNIQUE"
+        ");"
+    )
+
+    # table for ARD tile file information. Potentially very large
+    c.execute(
+        f"CREATE TABLE IF NOT EXISTS {TABLE_ARD_TILES} ("
+        "tile VARCHAR,"
+        "date DATE,"
+        "sensor VARCHAR,"
+        "product VARCHAR,"
+        "name VARCHAR,"
+        "size BIGINT,"
+        "c_time TIMESTAMP,"
+        "m_time TIMESTAMP,"
+        "force VARCHAR, "
+        "path VARCHAR UNIQUE,"
+        "PRIMARY KEY (tile, date, sensor, product)"
+        ");"
+    )
+    con.commit()
+
+
+def update_config(con, config: PATH):
+    path = Path(config)
+    if not config.is_file():
+        raise FileNotFoundError(f"Config file not found: {config}")
+
+    with open(path, "r") as f:
+        data = [line.strip() for line in f.read().split("\n")]
+        data = [line.strip().split("=") for line in data if len(line) > 0]
+        data = {kv[0].strip(): kv[1].strip() for kv in data}
+
+    with con.cursor() as cursor:
+        for k, v in data.items():
+            sql = f"""
+                INSERT INTO {TABLE_CONFIG} (key, value)
+                VALUES (%s, %s)
+                ON CONFLICT (key) 
+                DO UPDATE SET value = EXCLUDED.value
+                    """
+            cursor.execute(sql, (k, v))
+
+    con.commit()
+
+
+def read_log_files(
+    dir_path: PATH,
+    patterns: Union[str, List[str]] = "*.log",
+) -> Generator[Path, Any, None]:
+    dir_path = Path(dir_path)
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    generators = (dir_path.rglob(p) for p in patterns)
+    for p in chain.from_iterable(generators):
+        if p.is_file():
+            yield p
+
+
+def config_value(con: Connection, key: str) -> Optional[str]:
+
+    with con.cursor() as cursor:
+        query = f"SELECT value FROM {TABLE_CONFIG} WHERE key = %s"
+        result = cursor.execute(query, (key,)).fetchone()
+        if result:
+            return str(result[0])
+    return None
+
+
+def update_ard_logfiles(
+    con: Connection,
+    folder: PATH | None = None,
+    patterns=None,
+    replacements=None,
+):
+
+    if replacements is None:
+        replacements = {}
+    if patterns is None:
+        patterns = ["*.log", "*.fail"]
+
+    if folder is None:
+        pass
+
+    dir_logfile = config_value(con, "DIR_ARD_LOG")
+
+    for k, v in replacements.items():
+        if dir_logfile.startswith(k):
+            dir_logfile = dir_logfile.replace(k, v)
+
+    files = list(read_log_files(dir_logfile, patterns=patterns))
+
+    print(f'Logfiles found: {len(files)}')
+
+    m_time_min, m_time_max = to_datetime(mod_time[0]), to_datetime(mod_time[1])
+
+
+    payload = []
+
+    for f in tqdm(files, desc=f'Updating ARD log ("{patterns}")'):
+        f: Path
+        stat = f.stat()
+        m_time = datetime.datetime.fromtimestamp(stat.st_mtime)
+
+        if m_time_min and m_time_min > m_time:
+            continue
+        if m_time_max and m_time_max < m_time:
+            continue
+
+        p = str(f)
+        for k, v in REPLACE.items():
+            if p.startswith(k):
+                p = p.replace(k, v)
+                break
+
+        payload.append(
+            {
+                # "name": f.name,
+                "sceneid": f.name.split(".")[0],
+                "failed": f.name.endswith(".fail"),
+                "m_time": m_time,
+                "path": p,
+            }
+        )
+    if len(payload) == 0:
+        print(
+            f"No log files found for pattern '{patterns}' "
+            f"created between {m_time_min} and {m_time_max}"
+        )
+        return
+
+    df_staging = pd.DataFrame(payload)
+    self.con.register("df_param", df_staging)
+    # 3. Bulk insert using ON CONFLICT in a single query
+    self.con.execute(
+        f"""
+                  INSERT INTO {self.TABLE_ARD_LOG}
+                  (sceneid, failed, m_time, path)
+                  SELECT sceneid, failed, m_time, path
+                  FROM df_param
+                  ON CONFLICT (path)
+                  DO UPDATE SET (sceneid, failed, m_time, path) = (EXCLUDED.sceneid, EXCLUDED.failed, EXCLUDED.m_time, EXCLUDED.path)
+                """
+    )
+    self.con.unregister("df_param")
+
+    with con.cursor() as c:
+        pass
+
+    con.commit()
+    pass
+
+
+def update_ard_tiles(con: Connection, folder):
+    pass
+
+    s = ""
 
 
 class FORCEMonitor(object):
@@ -42,15 +228,15 @@ class FORCEMonitor(object):
 
     def __init__(
         self,
+        database: str,
         replace: Optional[Dict[str, str]] = None,
-        database: Union[Path, str] = ":memory:",
     ):
         if replace is None:
             replace = dict()
-
+        self.db_uri = database
         self.replace = replace
 
-        self.con = duckdb.connect(database=database)
+        self.con = psycopg.connect(self.db_uri)
 
         if database == ":memory:":
             self.initDB()
@@ -73,6 +259,7 @@ class FORCEMonitor(object):
 
     def update_config(self, path):
 
+        cursor = self.con.cursor()
         path = Path(path)
         if not path.is_file():
             raise FileNotFoundError(f"Config file not found: {path}")
@@ -82,33 +269,23 @@ class FORCEMonitor(object):
             data = [line.strip().split("=") for line in data if len(line) > 0]
             data = {kv[0].strip(): kv[1].strip() for kv in data}
 
-        c: DuckDBPyConnection = self.con
-
-        payload = []
         for k, v in data.items():
-            payload.append({"key": k, "value": v})
-
-        df_staging = pd.DataFrame(payload)
-        self.con.register("df_config", df_staging)
-        # 3. Bulk insert using ON CONFLICT in a single query
-        self.con.execute(
-            f"""
-             MERGE INTO {self.TABLE_CONFIG}
-             USING df_config
-             ON ({self.TABLE_CONFIG}.key = df_config.key)  
-             WHEN MATCHED THEN UPDATE SET value = df_config.value 
-             WHEN NOT MATCHED THEN INSERT (key, value) VALUES (df_config.key, df_config.value);
+            sql = f"""
+                    INSERT INTO {self.TABLE_CONFIG} (key, value)
+                    VALUES (%s, %s)
+                    ON CONFLICT (key) 
+                    DO UPDATE SET value = EXCLUDED.value
             """
-        )
-        self.con.unregister("df_config")
+            cursor.execute(sql, (k, v))
+
+        self.con.commit()
+        cursor.close()
 
     def initDB(self):
         """
-        Create a DuckDB database to contain the datacube metadata
+        Create the tables
         """
-        c = self.con
-        c.execute("INSTALL spatial;")
-        c.execute("LOAD spatial;")
+        c = self.con.cursor()
 
         # table for datacube configuration
         c.execute(
@@ -120,7 +297,7 @@ class FORCEMonitor(object):
 
         # table for ARD log file information
         c.execute(
-            f"CREATE TABLE {self.TABLE_ARD_LOG} ("
+            f"CREATE TABLE IF NOT EXISTS {self.TABLE_ARD_LOG} ("
             # "name VARCHAR PRIMARY KEY,"
             "sceneid VARCHAR PRIMARY KEY,"
             "failed BOOLEAN,"
@@ -131,7 +308,7 @@ class FORCEMonitor(object):
 
         # table for ARD tile file information. Potentially very large
         c.execute(
-            f"CREATE TABLE {self.TABLE_ARD_TILES} ("
+            f"CREATE TABLE IF NOT EXISTS {self.TABLE_ARD_TILES} ("
             "tile VARCHAR,"
             "date DATE,"
             "sensor VARCHAR,"
@@ -145,6 +322,8 @@ class FORCEMonitor(object):
             "PRIMARY KEY (tile, date, sensor, product),"
             ");"
         )
+        self.con.commit()
+        c.close()
 
     def configValue(self, key: str, replace_prefix: bool = True) -> str:
         """
